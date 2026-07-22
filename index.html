@@ -111,6 +111,10 @@
     .header-actions{gap:6px;}
     .settings-btn{width:38px;height:38px;font-size:15px;}
   }
+  .app-header-footer{
+    margin-bottom:0;margin-top:26px;padding-top:18px;
+    border-top:2px solid var(--line);
+  }
 
   /* ---------- PASSPORT / DASHBOARD HERO ---------- */
   .passport{
@@ -358,12 +362,13 @@
 
   /* ---------- QUIZ ---------- */
   .quiz-progress{
-    display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;
+    display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;
     font-family:'Fredoka';font-weight:700;font-size:13px;color:var(--ink-soft);
   }
   .quiz-dots{display:flex;gap:6px;}
-  .quiz-dot{width:9px;height:9px;border-radius:50%;background:var(--line);}
-  .quiz-dot.filled{background:var(--night);}
+  .quiz-dot{width:9px;height:9px;border-radius:50%;background:var(--line);transition:background .2s ease;}
+  .quiz-dot.filled{background:var(--night);animation:dotPop .3s cubic-bezier(.34,1.56,.64,1) both;}
+  @keyframes dotPop{0%{transform:scale(0.4);}60%{transform:scale(1.35);}100%{transform:scale(1);}}
   .quiz-card{
     background:var(--card);border:2.5px solid var(--line);border-radius:var(--radius-lg);padding:24px;
     box-shadow:var(--shadow-lg);
@@ -438,6 +443,32 @@
     0%,100%{transform:scale(1);box-shadow:0 0 14px rgba(53,242,224,0.55);}
     50%{transform:scale(1.05);box-shadow:0 0 22px rgba(255,60,172,0.6);}
   }
+  .perfect-badge{
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:'Fredoka',sans-serif;font-weight:800;font-size:14px;letter-spacing:.06em;
+    text-transform:uppercase;color:#0A0A1C;
+    background:linear-gradient(120deg, var(--gold), #fff6d6, var(--gold));
+    background-size:220% auto;
+    padding:8px 20px;border-radius:22px;margin-bottom:10px;
+    box-shadow:0 0 22px rgba(239,194,76,0.75);
+    animation: perfectPulse 1.2s ease-in-out infinite, perfectShine 2.6s linear infinite;
+  }
+  @keyframes perfectPulse{
+    0%,100%{transform:scale(1) rotate(-1deg);}
+    50%{transform:scale(1.08) rotate(1deg);}
+  }
+  @keyframes perfectShine{
+    0%{background-position:0% center;}
+    100%{background-position:220% center;}
+  }
+  .results-emoji.perfect{
+    animation: emojiBounce .6s cubic-bezier(.34,1.56,.64,1) .1s both, sparkleSpin 2.2s ease-in-out .7s infinite;
+  }
+  @keyframes sparkleSpin{
+    0%,100%{transform:rotate(0deg) scale(1);}
+    25%{transform:rotate(-10deg) scale(1.08);}
+    75%{transform:rotate(10deg) scale(1.08);}
+  }
 
   .footer-note{
     text-align:center;color:var(--ink-soft);font-size:11.5px;font-family:'Fredoka';font-weight:600;letter-spacing:.03em;margin-top:36px;opacity:.8;
@@ -484,6 +515,12 @@
     to{opacity:1; transform:translateY(0);}
   }
   .screen-enter{animation:screenIn .38s cubic-bezier(.22,1,.36,1) both;}
+
+  @keyframes tabFade{
+    from{opacity:0; transform:translateY(8px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+  .tab-fade{animation:tabFade .28s cubic-bezier(.22,1,.36,1) both;}
 
   @keyframes cardPop{
     from{opacity:0; transform:translateY(12px) scale(.96);}
@@ -567,16 +604,31 @@
   .confetti-wrap{position:relative; height:0;}
   .confetti-piece{
     position:absolute; top:-10px; left:50%; width:8px; height:14px; opacity:0.9;
-    animation:confettiFall 1.5s ease-in forwards;
+    animation-name: confettiFall; animation-timing-function: cubic-bezier(.28,0,.55,1); animation-fill-mode:forwards;
+  }
+  @keyframes confettiFall{
+    0%{transform:translate(0,0) rotate(0deg) scale(1); opacity:1;}
+    55%{transform:translate(var(--dxMid,0px),80px) rotate(var(--rotMid,220deg)) scale(1); opacity:1;}
+    100%{transform:translate(var(--dx,0px),150px) rotate(var(--rot,420deg)) scale(0.85); opacity:0;}
+  }
+  /* full-screen, extra-large burst reserved for a perfect quiz score */
+  .confetti-wrap.big{
+    position:fixed; inset:0; height:100vh; width:100vw; overflow:hidden; z-index:9999;
+  }
+  .confetti-wrap.big .confetti-piece{
+    top:-30px; width:11px; height:18px;
+    animation-name: confettiFallBig; animation-timing-function: cubic-bezier(.28,0,.55,1); animation-fill-mode:forwards;
+  }
+  @keyframes confettiFallBig{
+    0%{transform:translate(0,0) rotate(0deg) scale(1); opacity:1;}
+    50%{transform:translate(var(--dxMid,0px),52vh) rotate(var(--rotMid,300deg)) scale(1.05); opacity:1;}
+    85%{opacity:1;}
+    100%{transform:translate(var(--dx,0px),108vh) rotate(var(--rot,760deg)) scale(0.9); opacity:0;}
   }
   @media(min-width:900px){
     .journal-page, .quiz-progress, .quiz-card, .results-card{
       max-width:680px;margin-left:auto;margin-right:auto;
     }
-  }
-  @keyframes confettiFall{
-    0%{transform:translate(0,0) rotate(0deg); opacity:1;}
-    100%{transform:translate(var(--dx,0px),140px) rotate(var(--rot,360deg)); opacity:0;}
   }
   .text-input, .text-area{
     width:100%;border:2.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 14px;
@@ -2118,6 +2170,12 @@ const Sound = {
     const t = ctx.currentTime;
     [523.25, 659.25, 783.99, 1046.5].forEach((f,i)=> _tone(ctx, {freq:f, start:t+i*0.1, dur:0.32, type:"triangle", peak:0.15}));
   },
+  perfect(){
+    if(!_soundOn) return; const ctx = getAudioCtx(); if(!ctx) return;
+    const t = ctx.currentTime;
+    [523.25, 659.25, 783.99, 1046.5, 1318.51].forEach((f,i)=> _tone(ctx, {freq:f, start:t+i*0.09, dur:0.3, type:"triangle", peak:0.16}));
+    [1046.5, 1318.51, 1567.98].forEach((f,i)=> _tone(ctx, {freq:f, start:t+0.55, dur:0.55, type:"sine", peak:0.11}));
+  },
   tryAgain(){
     if(!_soundOn) return; const ctx = getAudioCtx(); if(!ctx) return;
     const t = ctx.currentTime;
@@ -2157,7 +2215,7 @@ function arraysEqual(a,b){
   return true;
 }
 
-function QuizRunner({questions, accent, onFinish, tagLabel, onStop}){
+function QuizRunner({questions, accent, onFinish, tagLabel, onStop, showStopInline=true}){
   const [idx, setIdx] = useState(0);
   const [selected, setSelected] = useState(null);
   const [fillText, setFillText] = useState("");
@@ -2335,7 +2393,7 @@ function QuizRunner({questions, accent, onFinish, tagLabel, onStop}){
   }
 
   return (
-    <div>
+    <div style={{width:"110%", marginLeft:"-5%"}}>
       <div className="quiz-progress">
         <span>QUESTION {idx+1} / {questions.length}</span>
         <div className="quiz-dots">
@@ -2343,19 +2401,25 @@ function QuizRunner({questions, accent, onFinish, tagLabel, onStop}){
             <div key={i} className={"quiz-dot" + (i<=idx ? " filled":"")}></div>
           ))}
         </div>
-        {onStop && (
-          <button
-            className="btn btn-ghost btn-sm"
-            style={{marginLeft:10}}
-            title="Stop this quiz"
-            onClick={()=>{
-              if(window.confirm("Stop this quiz? Your progress on this attempt won't be saved.")){
-                Sound.back();
-                onStop();
-              }
-            }}
-          >✕ Stop Quiz</button>
-        )}
+        <div style={{display:"flex", alignItems:"center", gap:8, marginLeft:10}}>
+          {showStopInline && onStop && (
+            <button
+              className="btn btn-ghost btn-sm"
+              title="Stop this quiz"
+              onClick={()=>{
+                if(window.confirm("Stop this quiz? Your progress on this attempt won't be saved.")){
+                  Sound.back();
+                  onStop();
+                }
+              }}
+            >✕ Stop Quiz</button>
+          )}
+          {answered && (
+            <button className="btn btn-primary btn-sm" style={{background:accent}} onClick={handleNext}>
+              {isLast ? "See Results →" : "Next →"}
+            </button>
+          )}
+        </div>
       </div>
       <div className="quiz-card" key={idx}>
         {q.tag && <div className="quiz-tag">{q.tag}</div>}
@@ -2528,13 +2592,6 @@ function QuizRunner({questions, accent, onFinish, tagLabel, onStop}){
             {q.explain}
           </div>
         )}
-        <div className="quiz-footer">
-          {answered && (
-            <button className="btn btn-primary" style={{background:accent}} onClick={handleNext}>
-              {isLast ? "See Results →" : "Next Question →"}
-            </button>
-          )}
-        </div>
       </div>
     </div>
   );
@@ -2542,25 +2599,33 @@ function QuizRunner({questions, accent, onFinish, tagLabel, onStop}){
 
 const CONFETTI_COLORS = ["var(--q1)","var(--q2)","var(--q3)","var(--q4)","var(--gold)"];
 const REWARD_CONFETTI_COLORS = ["var(--aw-cyan)","var(--aw-magenta)","var(--aw-purple)","var(--gold)","#ffffff"];
-function Confetti({variant}){
-  const palette = variant === "reward" ? REWARD_CONFETTI_COLORS : CONFETTI_COLORS;
-  const pieces = React.useMemo(()=>Array.from({length:18}, (_,i)=>({
-    left: 4 + Math.random()*92,
-    dx: (Math.random()*120-60)+"px",
-    rot: (Math.random()*520+180)+"deg",
-    delay: (Math.random()*0.25)+"s",
-    dur: (1.1 + Math.random()*0.6)+"s",
-    color: palette[i % palette.length],
-    round: Math.random()>0.5
-  })), [variant]);
+const PERFECT_CONFETTI_COLORS = ["var(--aw-cyan)","var(--aw-magenta)","var(--aw-purple)","var(--gold)","#ffffff","var(--q1)","var(--q2)","var(--q3)"];
+function Confetti({variant, big}){
+  const palette = variant === "perfect" ? PERFECT_CONFETTI_COLORS : variant === "reward" ? REWARD_CONFETTI_COLORS : CONFETTI_COLORS;
+  const count = big ? 90 : 18;
+  const pieces = React.useMemo(()=>Array.from({length:count}, (_,i)=>{
+    const dir = Math.random()>0.5 ? 1 : -1;
+    const spread = big ? 220 : 60;
+    return {
+      left: big ? Math.random()*100 : 4 + Math.random()*92,
+      dxMid: (dir * (10 + Math.random()*spread*0.6))+"px",
+      dx: (dir * (Math.random()*spread))+"px",
+      rotMid: (Math.random()*260+120)+"deg",
+      rot: (Math.random()*680+260)+"deg",
+      delay: (Math.random()*(big?0.6:0.25))+"s",
+      dur: (big ? 1.8+Math.random()*1.1 : 1.1+Math.random()*0.6)+"s",
+      color: palette[i % palette.length],
+      round: Math.random()>0.5
+    };
+  }), [variant, big, count]);
   return (
-    <div className="confetti-wrap" aria-hidden="true">
+    <div className={"confetti-wrap" + (big ? " big" : "")} aria-hidden="true">
       {pieces.map((p,i)=>(
         <div key={i} className="confetti-piece" style={{
           left:p.left+"%", background:p.color,
           borderRadius: p.round ? "50%" : "2px",
           animationDelay:p.delay, animationDuration:p.dur,
-          "--dx":p.dx, "--rot":p.rot
+          "--dx":p.dx, "--dxMid":p.dxMid, "--rot":p.rot, "--rotMid":p.rotMid
         }}/>
       ))}
     </div>
@@ -2571,15 +2636,17 @@ function ResultsView({answers, accent, onRetry, onDone, title}){
   const correct = answers.filter(a => a.isCorrect).length;
   const pct = Math.round((correct/total)*100);
   const passed = pct >= 70;
-  React.useEffect(()=>{ passed ? Sound.pass() : Sound.tryAgain(); }, []);
+  const isPerfect = total > 0 && correct === total;
+  React.useEffect(()=>{ isPerfect ? Sound.perfect() : passed ? Sound.pass() : Sound.tryAgain(); }, []);
   return (
     <div className={"results-card" + (passed ? " reward" : "")}>
-      {passed && <Confetti variant="reward"/>}
-      {passed && <div className="levelup-badge">⚡ Level Up!</div>}
-      <div className="results-emoji">{passed ? "🌟" : "🔍"}</div>
+      {passed && <Confetti variant={isPerfect ? "perfect" : "reward"} big={isPerfect}/>}
+      {isPerfect && <div className="perfect-badge">🎉 Perfect Score! 🎉</div>}
+      {passed && !isPerfect && <div className="levelup-badge">⚡ Level Up!</div>}
+      <div className={"results-emoji" + (isPerfect ? " perfect" : "")}>{isPerfect ? "🏆" : passed ? "🌟" : "🔍"}</div>
       <div className="results-score" style={{color: passed ? undefined : accent}}>{correct} / {total}</div>
       <div className="results-sub">
-        {passed ? "Great work! You passed " + title + "." : "Keep practicing — review " + title + " and try again."}
+        {isPerfect ? "Flawless! You got every question right in " + title + "." : passed ? "Great work! You passed " + title + "." : "Keep practicing — review " + title + " and try again."}
       </div>
       <div className="review-list">
         {answers.map((a, i) => (
@@ -3180,14 +3247,6 @@ function App(){
     setQuizSession(sess => ({...sess, finalAnswers: answers}));
   }
 
-  function resetAll(){
-    if(confirm("Reset all learning progress across every subject? This cannot be undone.")){
-      const fresh = {lessons:{}, longQuiz:{}};
-      setProgress(fresh);
-      goDashboard();
-    }
-  }
-
   /* ---------------- helpers across a whole subject ---------------- */
   function subjectLessonCount(subject){
     return allSubjectLessons(subject).length;
@@ -3513,22 +3572,37 @@ function App(){
     useEffect(()=>{ setQuizCount(Math.min(10, filteredBank.length) || 1); }, [lesson.id, filteredBank.length]);
     useEffect(()=>{ setQuizType(TYPE_ALL); }, [quizTopics, lesson.id]);
 
+    const activeLessonQuiz = tab==="quiz" && quizSession && quizSession.kind==="lesson" && quizSession.key===lesson.id && !quizSession.finalAnswers;
+
     return (
       <React.Fragment>
         <div className="backbar">
           <button className="backbtn" onClick={()=>goQuarter(subject.id, quarter.id)}>←</button>
           <div>
-            <div className="qnum" style={{color:quarter.color}}>{rawLesson.chapterTitle}</div>
-            <h1 style={{margin:0, fontSize:"20px"}}>{lesson.title}</h1>
+            <div className="qnum" style={{color:quarter.color, fontSize:"8px"}}>{rawLesson.chapterTitle}</div>
+            <h1 style={{margin:0, fontSize:"10px"}}>{lesson.title}</h1>
           </div>
         </div>
 
         <div className="tabbar">
           <button className={"tab" + (tab==="learn" ? " active":"")} onClick={()=>{setTab("learn"); setEditingLesson(false);}}>📖 Learn</button>
           <button className={"tab" + (tab==="quiz" ? " active":"")} onClick={()=>setTab("quiz")}>📝 Quiz{rec && rec.best ? " (" + rec.best.correct + "/" + rec.best.total + ")" : ""}</button>
+          {activeLessonQuiz && (
+            <button
+              className="btn btn-ghost btn-sm"
+              title="Stop this quiz"
+              onClick={()=>{
+                if(window.confirm("Stop this quiz? Your progress on this attempt won't be saved.")){
+                  Sound.back();
+                  setQuizSession(null);
+                }
+              }}
+            >✕ Stop Quiz</button>
+          )}
           <button className={"tab" + (tab==="manage" ? " active":"")} onClick={()=>setTab("manage")}>🗂️ Questions{qBank.length ? " (" + qBank.length + ")" : ""}</button>
         </div>
 
+        <div key={tab} className="tab-fade">
         {tab === "learn" && (
           editingLesson ? (
             <LessonEditForm
@@ -3609,6 +3683,7 @@ function App(){
                 accent={quarter.color}
                 onFinish={handleQuizFinish}
                 onStop={()=>{setQuizSession(null);}}
+                showStopInline={false}
               />
             )
           ) : (
@@ -3675,6 +3750,7 @@ function App(){
             onChange={(next)=>setLessonQuestions(lesson.id, next)}
           />
         )}
+        </div>
       </React.Fragment>
     );
   }
@@ -3734,32 +3810,36 @@ function App(){
   const headerBg = nav.subjectId && currentSubject() ? currentSubject().color : "linear-gradient(150deg, var(--night), var(--night-deep))";
   const screenKey = (quizSession && quizSession.kind==="long" ? "longquiz-"+quizSession.key : nav.screen) + "-" + (nav.subjectId||"") + "-" + (nav.quarterId||"") + "-" + (nav.lessonId||"");
 
-  return (
-    <React.Fragment>
-      <div className="app-header">
-        <div className="brand" onClick={goDashboard} style={{cursor:"pointer"}}>
-          <div className="brand-badge" style={{background:headerBg}}>{headerIcon}</div>
-          <div className="brand-text">
-            <div className="eyebrow">Sacred Heart Academy of Pasig</div>
-            <h1>{headerLabel}</h1>
-          </div>
-        </div>
-        <div className="header-actions">
-          <button
-            className="settings-btn"
-            title={settings.soundEnabled !== false ? "Mute sound" : "Unmute sound"}
-            onClick={()=>{
-              const next = settings.soundEnabled === false;
-              updateSettings({soundEnabled: next});
-              if(next) setTimeout(()=>Sound.tap(), 30);
-            }}
-          >{settings.soundEnabled !== false ? "🔊" : "🔇"}</button>
-          <button className="settings-btn" title="Save everything now" onClick={saveEverythingNow}>💾</button>
-          <button className="settings-btn" title="Reset progress" onClick={resetAll}>⟳</button>
+  const headerBar = (
+    <div className={"app-header" + (nav.subjectId ? " app-header-footer" : "")}>
+      <div className="brand" onClick={goDashboard} style={{cursor:"pointer"}}>
+        <div className="brand-badge" style={{background:headerBg}}>{headerIcon}</div>
+        <div className="brand-text">
+          <div className="eyebrow">Sacred Heart Academy of Pasig</div>
+          <h1>{headerLabel}</h1>
         </div>
       </div>
+      <div className="header-actions">
+        <button
+          className="settings-btn"
+          title={settings.soundEnabled !== false ? "Mute sound" : "Unmute sound"}
+          onClick={()=>{
+            const next = settings.soundEnabled === false;
+            updateSettings({soundEnabled: next});
+            if(next) setTimeout(()=>Sound.tap(), 30);
+          }}
+        >{settings.soundEnabled !== false ? "🔊" : "🔇"}</button>
+        <button className="settings-btn" title="Save everything now" onClick={saveEverythingNow}>💾</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <React.Fragment>
+      {!nav.subjectId && headerBar}
       {saveFlash && <div className="save-toast">{saveFlash}</div>}
       <div key={screenKey} className="screen-enter">{content}</div>
+      {nav.subjectId && headerBar}
     </React.Fragment>
   );
 }
