@@ -947,7 +947,7 @@ async function pushToCloud(){
 }
 
 async function loadFromCloud(){
-  // Pull the shared save down before the app renders, so this device
+  // Pull the shared save down in the background, so this device
   // picks up progress made on any other device. Falls back silently
   // to whatever is already in localStorage if the cloud isn't reachable.
   try{
@@ -958,9 +958,12 @@ async function loadFromCloud(){
       Object.keys(remote).forEach(k=>{
         try{ localStorage.setItem(k, JSON.stringify(remote[k])); }catch(e){}
       });
+      return true;
     }
+    return false;
   }catch(e){
     console.warn("Firebase load skipped (offline):", e.message);
+    return false;
   }
 }
 
@@ -4013,6 +4016,7 @@ function App(){
   const [nav, setNav] = useState({screen:"dashboard"});
   const [quizSession, setQuizSession] = useState(null); // {kind:'lesson'|'long', questions, accent, title, key}
   const [saveFlash, setSaveFlash] = useState(false);
+  const importInputRef = useRef(null);
 
   useEffect(()=>{ saveProgress(progress); }, [progress]);
   useEffect(()=>{ saveEdits(edits); }, [edits]);
@@ -4024,6 +4028,23 @@ function App(){
   useEffect(()=>{ saveGeneralKnown(generalKnown); }, [generalKnown]);
   useEffect(()=>{ setSoundEnabled(settings.soundEnabled !== false); }, [settings.soundEnabled]);
 
+  useEffect(()=>{
+    // If the background Firebase pull finds newer data than what we
+    // rendered with, refresh state from localStorage without a reload.
+    function onCloudSynced(){
+      setProgress(loadProgress());
+      setEdits(loadEdits());
+      setBank(loadBank());
+      setMoves(loadMoves());
+      setSettings(loadSettings());
+      setNotes(loadNotes());
+      setActivity(loadActivity());
+      setGeneralKnown(loadGeneralKnown());
+    }
+    window.addEventListener("gs4-cloud-synced", onCloudSynced);
+    return () => window.removeEventListener("gs4-cloud-synced", onCloudSynced);
+  }, []);
+
   async function saveEverythingNow(){
     Sound.save();
     saveProgress(progress); saveEdits(edits); saveBank(bank); saveMoves(moves);
@@ -4033,6 +4054,65 @@ function App(){
     const cloudOk = await pushToCloud();
     setSaveFlash(cloudOk ? "✅ Saved to Firebase!" : "⚠️ Saved on this device only (offline)");
     setTimeout(()=>setSaveFlash(false), 1800);
+  }
+
+  function exportAllData(){
+    const payload = {
+      app: "gs2-learning-passport",
+      exportedAt: new Date().toISOString(),
+      data: {
+        progress, edits, bank, moves, settings, notes, activity, generalKnown
+      }
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `learning-passport-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setSaveFlash("⬇️ Exported backup file!");
+    setTimeout(()=>setSaveFlash(false), 1800);
+  }
+
+  function importAllData(file){
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try{
+        const parsed = JSON.parse(reader.result);
+        const d = parsed && parsed.data ? parsed.data : parsed; // allow raw or wrapped JSON
+        if(!d || typeof d !== "object") throw new Error("bad format");
+        if(!window.confirm("Import this backup? This will replace all current progress, topics, notes, and quiz bank data on this device.")) return;
+        if(d.progress) setProgress(d.progress);
+        if(d.edits) setEdits(d.edits);
+        if(d.bank) setBank(d.bank);
+        if(d.moves) setMoves(d.moves);
+        if(d.settings) setSettings(d.settings);
+        if(d.notes) setNotes(d.notes);
+        if(d.activity) setActivity(d.activity);
+        if(d.generalKnown) setGeneralKnown(d.generalKnown);
+        // Persist immediately so a refresh doesn't race the effects.
+        if(d.progress) saveProgress(d.progress);
+        if(d.edits) saveEdits(d.edits);
+        if(d.bank) saveBank(d.bank);
+        if(d.moves) saveMoves(d.moves);
+        if(d.settings) saveSettings(d.settings);
+        if(d.notes) saveNotes(d.notes);
+        if(d.activity) saveActivity(d.activity);
+        if(d.generalKnown) saveGeneralKnown(d.generalKnown);
+        clearTimeout(cloudSyncTimer);
+        const cloudOk = await pushToCloud();
+        setSaveFlash(cloudOk ? "✅ Imported & synced!" : "✅ Imported (saved on this device only)");
+        setTimeout(()=>setSaveFlash(false), 1800);
+      }catch(err){
+        setSaveFlash("⚠️ Import failed: invalid file");
+        setTimeout(()=>setSaveFlash(false), 2200);
+      }
+    };
+    reader.readAsText(file);
   }
 
   function logLessonLearned(lessonId){
@@ -4869,6 +4949,19 @@ function App(){
           }}
         >{settings.soundEnabled !== false ? "🔊" : "🔇"}</button>
         <button className="settings-btn" title="Save everything now" onClick={saveEverythingNow}>💾</button>
+        <button className="settings-btn" title="Export all data as JSON" onClick={exportAllData}>⬇️</button>
+        <button className="settings-btn" title="Import data from JSON backup" onClick={()=>importInputRef.current && importInputRef.current.click()}>⬆️</button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept="application/json,.json"
+          style={{display:"none"}}
+          onChange={(e)=>{
+            const file = e.target.files && e.target.files[0];
+            if(file) importAllData(file);
+            e.target.value = "";
+          }}
+        />
       </div>
     </div>
   );
@@ -4884,13 +4977,14 @@ function App(){
 }
 
 /* =========================================================
-   STARTUP — hydrate from Firebase first so this device sees
-   the latest saved progress, then mount the app. No login.
+   STARTUP — mount instantly from whatever's in localStorage,
+   then hydrate from Firebase in the background so other-device
+   progress still shows up, without blocking first paint.
    ========================================================= */
-(async function start(){
-  await loadFromCloud();
-  ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-})();
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+loadFromCloud().then(cloudSynced => {
+  if(cloudSynced) window.dispatchEvent(new Event("gs4-cloud-synced"));
+});
 </script>
 </body>
 </html>
