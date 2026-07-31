@@ -600,6 +600,8 @@
     transition:transform .12s ease;
   }
   .settings-btn:active{transform:translateY(2px) scale(0.96);}
+  .settings-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .settings-btn:disabled:active{transform:none;}
 
   /* ---------- TOGGLE SWITCH (sound settings) ---------- */
   .sound-toggle-row{display:flex; align-items:center; justify-content:space-between; padding:12px 0; gap:12px;}
@@ -751,6 +753,21 @@
       max-width:680px;margin-left:auto;margin-right:auto;
     }
   }
+  /* ---------- LEARN TAB LAYOUT (video + notes) ---------- */
+  /* Mobile/default: video(s) then notes, simply stacked — same as before. */
+  .learn-video-col .video-embed:last-child{margin-bottom:0;}
+  .learn-notes-col > *:last-child{margin-bottom:0;}
+  @media(min-width:900px){
+    /* Desktop: widen the Learn card and put the video beside the notes instead of
+       stacking everything full-width — keeps the tab from turning into one very
+       long scroll on a wide screen. The video stays pinned while notes scroll. */
+    .journal-page.learn-page{max-width:960px;}
+    .learn-layout{
+      display:grid; grid-template-columns:minmax(280px,400px) 1fr; gap:24px; align-items:start;
+    }
+    .learn-video-col{position:sticky; top:20px;}
+    .learn-video-col .video-embed{margin-bottom:16px;}
+  }
   .text-input, .text-area{
     width:100%;border:2.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 14px;
     font-family:'Nunito',sans-serif;font-size:16px;background:var(--card);color:var(--ink);
@@ -892,8 +909,17 @@
   .dd-categories{display:flex;flex-wrap:wrap;gap:10px;}
   .dd-category{
     flex:1;min-width:120px;border:2.5px dashed var(--line);border-radius:var(--radius-sm);padding:10px;
-    background:var(--paper);cursor:pointer;transition:border-color .12s ease, background .12s ease;
+    cursor:pointer;transition:border-color .12s ease, background .12s ease;
   }
+  /* Each category gets its own pastel fill so kids can see at a glance how many bins there are */
+  .dd-category.dd-cat-0{background:#FFE9E9;border-color:#F2AFAF;}
+  .dd-category.dd-cat-1{background:#E7F1FF;border-color:#AAC8F2;}
+  .dd-category.dd-cat-2{background:#E9FBEA;border-color:#A7E0AC;}
+  .dd-category.dd-cat-3{background:#FFF6D9;border-color:#F0D488;}
+  .dd-category.dd-cat-4{background:#F4EAFF;border-color:#CBA9F2;}
+  .dd-category.dd-cat-5{background:#FFEAF6;border-color:#F2A9D9;}
+  .dd-category.dd-cat-6{background:#E6FBF7;border-color:#9FE6DA;}
+  .dd-category.dd-cat-7{background:#FFF0E4;border-color:#F0C097;}
   .dd-category.drag-over{border-color:var(--night);background:var(--q3-soft);}
   .dd-category-title{font-family:'Fredoka';font-weight:700;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);margin-bottom:8px;}
   .dd-empty{font-size:12px;color:var(--ink-soft);font-style:italic;padding:6px 0;}
@@ -2291,13 +2317,48 @@ function saveGeneralKnown(g){
    ========================================================= */
 const SUBJECTS = [
   {id:"general", name:"General Knowledge", shortName:"General", icon:"\ud83d\udcd6", tagline:"Grade 3 Readiness Word List", quarters:[], color:"#6B5B95", soft:"#EDE8F5", special:"reference"},
-  {id:"ap", name:"Makabansa 2", shortName:"Makabansa", icon:"\ud83c\udde8\ud83c\udded", tagline:"Mapa ng Aking Komunidad", quarters: AP_QUARTERS, color:"#1B4DE4", soft:"#DCE6FF"},
+  {id:"ap", name:"Makabansa 2", shortName:"Makabansa", icon:"PH_FLAG", tagline:"Mapa ng Aking Komunidad", quarters: AP_QUARTERS, color:"#1B4DE4", soft:"#DCE6FF"},
   {id:"computer", name:"Robotics 2", shortName:"Robotics", icon:"\ud83e\udd16", tagline:"Young Robot Explorer's Passport", quarters: COMPUTER_QUARTERS, color:"#0EA5E9", soft:"#DFF3FE"},
   {id:"math", name:"Math 2", shortName:"Math", icon:"\ud83d\udd22", tagline:"Number Explorer's Passport", quarters: MATH_QUARTERS, color:"#0D9488", soft:"#D9F5F0"},
   {id:"english", name:"English 2", shortName:"English", icon:"\ud83d\udcda", tagline:"Little Reader's Passport", quarters: ENGLISH_QUARTERS, color:"#4F63E0", soft:"#E5E8FF"},
   {id:"filipino", name:"Filipino 2", shortName:"Filipino", icon:"\ud83d\udcd4", tagline:"Daan Tungo sa Wikang Filipino", quarters: FILIPINO_QUARTERS, color:"#1E3A8A", soft:"#DDE5FA"},
   {id:"gmrc", name:"GMRC 2", shortName:"GMRC", icon:"\ud83e\udded", tagline:"Good Manners Explorer's Passport", quarters: GMRC_QUARTERS, color:"#334155", soft:"#E2E8F0"}
 ];
+
+// Simple SVG star-polygon point generator, used to draw the sun and stars on the
+// Philippine flag icon below.
+function starPoints(cx, cy, spikes, outerR, innerR){
+  const step = Math.PI / spikes;
+  const pts = [];
+  for(let i=0;i<spikes*2;i++){
+    const r = i%2===0 ? outerR : innerR;
+    const a = -Math.PI/2 + i*step;
+    pts.push((cx + Math.cos(a)*r).toFixed(2) + "," + (cy + Math.sin(a)*r).toFixed(2));
+  }
+  return pts.join(" ");
+}
+// The Philippine flag, drawn as a real vector graphic rather than the 🇵🇭 emoji —
+// flag emoji don't render as actual flags on plenty of desktop browsers/OSes
+// (Windows in particular just shows the letters "PH"), so this shows correctly everywhere.
+function PHFlagIcon(){
+  return (
+    <svg viewBox="0 0 30 20" width="1em" height="1em" style={{display:"block", borderRadius:"3px", flex:"0 0 auto"}} role="img" aria-label="Philippine flag">
+      <rect x="0" y="0" width="30" height="10" fill="#0038A8"/>
+      <rect x="0" y="10" width="30" height="10" fill="#CE1126"/>
+      <polygon points="0,0 0,20 17.3,10" fill="#FFFFFF"/>
+      <polygon points={starPoints(6.5, 10, 8, 2.6, 1.15)} fill="#FCD116"/>
+      <polygon points={starPoints(2.6, 3, 5, 1.1, 0.45)} fill="#FCD116"/>
+      <polygon points={starPoints(2.6, 17, 5, 1.1, 0.45)} fill="#FCD116"/>
+      <polygon points={starPoints(13.2, 10, 5, 1.1, 0.45)} fill="#FCD116"/>
+    </svg>
+  );
+}
+// Renders a subject's icon — the "PH_FLAG" sentinel becomes the real vector flag above;
+// everything else (all the other subjects' emoji) displays exactly as it did before.
+function SubjectIcon({icon}){
+  if(icon === "PH_FLAG") return <PHFlagIcon/>;
+  return icon;
+}
 
 /* =========================================================
    HELPERS
@@ -2650,6 +2711,11 @@ function QuizRunner({questions, accent, onFinish, tagLabel, onStop, showStopInli
   const [fillText, setFillText] = useState("");
   const [fillChecked, setFillChecked] = useState(false);
   const [answers, setAnswers] = useState([]);
+  // The furthest question index reached "for real" (as opposed to via the Back button).
+  // Answers are committed to the `answers` array the instant a question is checked, so we can't
+  // use answers.length anymore to tell "currently being answered" apart from "already reviewed" —
+  // this does that job instead.
+  const [furthestIdx, setFurthestIdx] = useState(0);
 
   // Matching (connect-the-dots)
   const [matchRightOrder, setMatchRightOrder] = useState([]);
@@ -2688,7 +2754,10 @@ function QuizRunner({questions, accent, onFinish, tagLabel, onStop, showStopInli
   const [patternChecked, setPatternChecked] = useState(false);
 
   const q = questions[idx];
-  const record = answers[idx]; // set once this question has already been answered — lets the Back button show a read-only review of it
+  // Only a genuinely-reviewed past question (idx < furthestIdx) renders as read-only.
+  // The current, still-in-progress question keeps its live interactive/feedback view even
+  // though its answer has already been committed into `answers` behind the scenes.
+  const record = idx < furthestIdx ? answers[idx] : undefined;
   const isLast = idx === questions.length - 1;
   const qType = q.type || "mcq";
   const isFill = qType === "fill";
@@ -2703,7 +2772,7 @@ function QuizRunner({questions, accent, onFinish, tagLabel, onStop, showStopInli
   // Reset per-question mcq/fill state whenever we land on a question that hasn't been answered yet
   // (i.e. we're not reviewing it via the Back button). Keeps forward/back navigation in sync.
   useEffect(()=>{
-    if(idx < answers.length) return; // already-answered question — Back button review handles its own display
+    if(answers[idx] !== undefined) return; // already-answered question — never rebuild/clear its state once committed
     setSelected(null);
     setFillText("");
     setFillChecked(false);
@@ -2711,7 +2780,7 @@ function QuizRunner({questions, accent, onFinish, tagLabel, onStop, showStopInli
 
   // Reset/initialize per-question state whenever the question changes
   useEffect(()=>{
-    if(idx < answers.length) return; // already-answered question — reviewed read-only, no need to rebuild interactive state
+    if(answers[idx] !== undefined) return; // already-answered question — never rebuild/clear its state once committed
     if(isMatch){
       setMatchRightOrder(shuffledIndices((q.pairs||[]).length));
       setMatchPicks({});
@@ -2763,15 +2832,29 @@ function QuizRunner({questions, accent, onFinish, tagLabel, onStop, showStopInli
     : isPattern ? patternChecked
     : selected !== null;
 
+  // Permanently lock in the answer to the CURRENT question as soon as it's submitted/checked,
+  // by writing straight into the answers array (instead of waiting for the Next button).
+  // This is what stops the "select wrong answer → Back → Next" trick from wiping the attempt
+  // and letting a student retry with the answer they just saw revealed.
+  function commitAnswer(record){
+    setAnswers(prev=>{
+      const next = prev.slice();
+      next[idx] = record;
+      return next;
+    });
+  }
   function handleSelect(optIdx){
     if(selected !== null) return;
     setSelected(optIdx);
     if(optIdx === q.correct) Sound.correct(); else Sound.incorrect();
+    commitAnswer({type:qType, question:q.q, options:q.options, correct:q.correct, chosen:optIdx, isCorrect: optIdx===q.correct, tag:q.tag || null});
   }
   function handleFillCheck(){
     if(fillChecked || !fillText.trim()) return;
     setFillChecked(true);
-    if(matchesFillAnswer(fillText, acceptable)) Sound.correct(); else Sound.incorrect();
+    const correct = matchesFillAnswer(fillText, acceptable);
+    if(correct) Sound.correct(); else Sound.incorrect();
+    commitAnswer({type:"fill", question:q.q, answer:q.answer, chosen:fillText.trim(), isCorrect:correct, tag:q.tag || null});
   }
 
   // ---- Matching handlers (tap-to-select, or drag a line dot-to-dot) ----
@@ -2823,6 +2906,8 @@ function QuizRunner({questions, accent, onFinish, tagLabel, onStop, showStopInli
     setMatchChecked(true);
     const allCorrect = (q.pairs||[]).every((_,li)=> matchRightOrder[matchPicks[li]] === li);
     if(allCorrect) Sound.correct(); else Sound.incorrect();
+    const chosenPairs = (q.pairs||[]).map((p,li)=>({left:p.left, right: q.pairs[matchRightOrder[matchPicks[li]]].right}));
+    commitAnswer({type:"match", question:q.q, pairs:q.pairs, chosen:chosenPairs, isCorrect:allCorrect, tag:q.tag || null});
   }
   // Begin dragging a connector line from a left dot; tracks the pointer until release,
   // and if released over a right item, commits the match — like drawing a line in a workbook.
@@ -2958,6 +3043,7 @@ function QuizRunner({questions, accent, onFinish, tagLabel, onStop, showStopInli
     setDdChecked(true);
     const allCorrect = (q.items||[]).every((it,ii)=> ddAssign[ii] === it.category);
     if(allCorrect) Sound.correct(); else Sound.incorrect();
+    commitAnswer({type:"dragdrop", question:q.q, items:q.items, categories:q.categories, chosen:{...ddAssign}, isCorrect:allCorrect, tag:q.tag || null});
   }
 
   // ---- Ordering handlers (drag & drop, mouse + touch via Pointer Events) ----
@@ -3000,7 +3086,9 @@ function QuizRunner({questions, accent, onFinish, tagLabel, onStop, showStopInli
     if(orderChecked) return;
     setOrderChecked(true);
     const correctOrder = (q.items||[]).map((_,i)=>i);
-    if(arraysEqual(orderList, correctOrder)) Sound.correct(); else Sound.incorrect();
+    const allCorrect = arraysEqual(orderList, correctOrder);
+    if(allCorrect) Sound.correct(); else Sound.incorrect();
+    commitAnswer({type:"order", question:q.q, items:q.items, chosen:orderList.map(i=>q.items[i]), isCorrect:allCorrect, tag:q.tag || null});
   }
 
   // ---- Label the Parts handlers (tap a word, then tap the pin it names) ----
@@ -3029,6 +3117,8 @@ function QuizRunner({questions, accent, onFinish, tagLabel, onStop, showStopInli
     setLabelChecked(true);
     const allCorrect = (q.points||[]).every((p,pi)=> labelWordOrder[labelAssign[pi]] === pi);
     if(allCorrect) Sound.correct(); else Sound.incorrect();
+    const chosen = (q.points||[]).map((p,pi)=> labelAssign[pi]!==undefined ? q.points[labelWordOrder[labelAssign[pi]]].label : null);
+    commitAnswer({type:"label", question:q.q, image:q.image, points:q.points, chosen, isCorrect:allCorrect, tag:q.tag || null});
   }
 
   // ---- Number Pattern handlers ----
@@ -3041,38 +3131,39 @@ function QuizRunner({questions, accent, onFinish, tagLabel, onStop, showStopInli
     setPatternChecked(true);
     const allCorrect = patternBlankIdxs.every(ii => matchesFillAnswer(patternValues[ii], String((q.items[ii]||{}).answer||"").split("|").map(a=>a.trim())));
     if(allCorrect) Sound.correct(); else Sound.incorrect();
+    commitAnswer({type:"pattern", question:q.q, items:q.items, chosen:{...patternValues}, isCorrect:allCorrect, tag:q.tag || null});
   }
 
+  // The current question's answer is already written into the `answers` array (see commitAnswer,
+  // called the moment the question was checked/selected) — so Next just needs to advance, or
+  // finish the quiz using the answers we already have. Nothing here can be re-triggered to
+  // change an answer that's already been locked in.
   function handleNext(){
     Sound.tap();
-    let record;
-    if(isFill){
-      record = {type:"fill", question:q.q, answer:q.answer, chosen:fillText.trim(), isCorrect:fillIsCorrect, tag:q.tag || null};
-    } else if(isMatch){
-      const chosenPairs = (q.pairs||[]).map((p,li)=>({left:p.left, right: q.pairs[matchRightOrder[matchPicks[li]]].right}));
-      record = {type:"match", question:q.q, pairs:q.pairs, chosen:chosenPairs, isCorrect:matchIsCorrect, tag:q.tag || null};
-    } else if(isDragDrop){
-      record = {type:"dragdrop", question:q.q, items:q.items, categories:q.categories, chosen:{...ddAssign}, isCorrect:ddIsCorrect, tag:q.tag || null};
-    } else if(isOrder){
-      record = {type:"order", question:q.q, items:q.items, chosen:orderList.map(i=>q.items[i]), isCorrect:orderIsCorrect, tag:q.tag || null};
-    } else if(isLabel){
-      const chosen = (q.points||[]).map((p,pi)=> labelAssign[pi]!==undefined ? q.points[labelWordOrder[labelAssign[pi]]].label : null);
-      record = {type:"label", question:q.q, image:q.image, points:q.points, chosen, isCorrect:labelIsCorrect, tag:q.tag || null};
-    } else if(isPattern){
-      record = {type:"pattern", question:q.q, items:q.items, chosen:{...patternValues}, isCorrect:patternIsCorrect, tag:q.tag || null};
-    } else {
-      record = {type:qType, question:q.q, options:q.options, correct:q.correct, chosen:selected, isCorrect: selected===q.correct, tag:q.tag || null};
-    }
-    const newAnswers = [...answers, record];
     if(isLast){
-      onFinish(newAnswers);
+      // Fallback safety net: build the record here too, in case commitAnswer's state update
+      // hasn't flushed yet for some reason, so a finished quiz never loses its last answer.
+      const already = answers[idx];
+      const record = already || (
+        isFill ? {type:"fill", question:q.q, answer:q.answer, chosen:fillText.trim(), isCorrect:fillIsCorrect, tag:q.tag || null}
+        : isMatch ? {type:"match", question:q.q, pairs:q.pairs, chosen:(q.pairs||[]).map((p,li)=>({left:p.left, right: q.pairs[matchRightOrder[matchPicks[li]]].right})), isCorrect:matchIsCorrect, tag:q.tag || null}
+        : isDragDrop ? {type:"dragdrop", question:q.q, items:q.items, categories:q.categories, chosen:{...ddAssign}, isCorrect:ddIsCorrect, tag:q.tag || null}
+        : isOrder ? {type:"order", question:q.q, items:q.items, chosen:orderList.map(i=>q.items[i]), isCorrect:orderIsCorrect, tag:q.tag || null}
+        : isLabel ? {type:"label", question:q.q, image:q.image, points:q.points, chosen:(q.points||[]).map((p,pi)=> labelAssign[pi]!==undefined ? q.points[labelWordOrder[labelAssign[pi]]].label : null), isCorrect:labelIsCorrect, tag:q.tag || null}
+        : isPattern ? {type:"pattern", question:q.q, items:q.items, chosen:{...patternValues}, isCorrect:patternIsCorrect, tag:q.tag || null}
+        : {type:qType, question:q.q, options:q.options, correct:q.correct, chosen:selected, isCorrect: selected===q.correct, tag:q.tag || null}
+      );
+      const finalAnswers = answers.slice();
+      finalAnswers[idx] = record;
+      onFinish(finalAnswers);
     } else {
-      setAnswers(newAnswers);
+      setFurthestIdx(f=>Math.max(f, idx+1));
       setIdx(idx+1);
     }
   }
   // Step back to the previous question to review your answer and the correct one.
-  // Doesn't touch the answers array — stepping forward again just re-displays what was already recorded.
+  // Doesn't touch the answers array — stepping forward again just re-displays what was already
+  // recorded, and can never undo or overwrite an answer that's already been locked in.
   function handleBack(){
     if(idx===0) return;
     Sound.back();
@@ -3259,12 +3350,12 @@ function QuizRunner({questions, accent, onFinish, tagLabel, onStop, showStopInli
               )}
             </div>
             <div className="dd-categories">
-              {(q.categories||[]).map(cat=>{
+              {(q.categories||[]).map((cat,ci)=>{
                 const itemsHere = (q.items||[]).map((it,ii)=>({it,ii})).filter(x=>ddAssign[x.ii]===cat);
                 return (
                   <div
                     key={cat}
-                    className={"dd-category" + (dragOverCat===cat ? " drag-over" : "")}
+                    className={"dd-category dd-cat-" + (ci % 8) + (dragOverCat===cat ? " drag-over" : "")}
                     data-cat={cat}
                     onClick={()=>handleDdCategoryClick(cat)}
                   >
@@ -4130,6 +4221,15 @@ function QuestionBankManager({lessonId, questions, accent, onChange}){
     setSelected(new Set());
   }
 
+  function handleDeleteType(type){
+    const label = (QUESTION_TYPES.find(t=>t.id===type)||{}).label || type;
+    const count = questions.filter(q=>(q.type||"mcq")===type).length;
+    if(count===0) return;
+    if(!confirm("Delete all " + count + " \"" + label + "\" question(s)? This can't be undone.")) return;
+    onChange(questions.filter(q=>(q.type||"mcq")!==type));
+    setSelected(new Set());
+  }
+
   function triggerDownload(filename, data){
     try{
       const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
@@ -4149,6 +4249,12 @@ function QuestionBankManager({lessonId, questions, accent, onChange}){
     const list = questions.filter(q=>normTopic(q.topic)===topic);
     if(!list.length) return;
     triggerDownload(slugify(lessonId) + "-" + slugify(topic || "no-topic") + ".json", list);
+  }
+
+  function handleDownloadType(type){
+    const list = questions.filter(q=>(q.type||"mcq")===type);
+    if(!list.length) return;
+    triggerDownload(slugify(lessonId) + "-" + slugify(type) + ".json", list);
   }
 
   function handleDownloadAll(){
@@ -4291,6 +4397,24 @@ function QuestionBankManager({lessonId, questions, accent, onChange}){
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {questions.length > 0 && (
+        <div className="bank-topic-tools">
+          <label className="field-label" style={{marginTop:0}}>Manage by question type</label>
+          {QUESTION_TYPES.filter(t=>questions.some(q=>(q.type||"mcq")===t.id)).map(t=>{
+            const count = questions.filter(q=>(q.type||"mcq")===t.id).length;
+            return (
+              <div key={t.id} className="bank-topic-row">
+                <span className="bank-topic-name">{t.label} ({count})</span>
+                <div style={{display:"flex", gap:8}}>
+                  <button className="btn btn-ghost btn-sm" onClick={()=>handleDownloadType(t.id)}>⬇️ Download</button>
+                  <button className="btn btn-ghost btn-sm" style={{color:"var(--bad)"}} onClick={()=>handleDeleteType(t.id)}>🗑️ Delete All</button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -4883,7 +5007,7 @@ function App(){
               const known = Object.keys(generalKnown).filter(k=>generalKnown[k]).length;
               return (
                 <button key={s.id} className={"subject-square" + (known>=total && total>0 ? " complete":"")} onClick={()=>goGeneral(s.id)} style={{animationDelay:(si*0.05)+"s"}}>
-                  <div className="sq-icon">{s.icon}</div>
+                  <div className="sq-icon"><SubjectIcon icon={s.icon}/></div>
                   <div className="sq-label">{s.shortName}</div>
                   <div className="sq-frac" style={{color:s.color}}>{known}/{total}</div>
                 </button>
@@ -4893,7 +5017,7 @@ function App(){
             const total = subjectLessonCount(s);
             return (
               <button key={s.id} className={"subject-square" + (learned===total && total>0 ? " complete":"")} onClick={()=>goSubjectHome(s.id)} style={{animationDelay:(si*0.05)+"s"}}>
-                <div className="sq-icon">{s.icon}</div>
+                <div className="sq-icon"><SubjectIcon icon={s.icon}/></div>
                 <div className="sq-label">{s.shortName}</div>
                 <div className="sq-frac" style={{color:s.color}}>{learned}/{total}</div>
               </button>
@@ -4955,7 +5079,7 @@ function App(){
                 const known = Object.keys(generalKnown).filter(k=>generalKnown[k]).length;
                 return (
                   <button key={s.id} className={"stamp" + (known>=total && total>0 ? " complete":"")} onClick={()=>goGeneral(s.id)}>
-                    <div className="icon">{s.icon}</div>
+                    <div className="icon"><SubjectIcon icon={s.icon}/></div>
                     <div className="label">{s.shortName}</div>
                     <div className="frac">{known}/{total}</div>
                   </button>
@@ -4965,7 +5089,7 @@ function App(){
               const total = subjectLessonCount(s);
               return (
                 <button key={s.id} className={"stamp" + (learned===total && total>0 ? " complete":"")} onClick={()=>goSubjectHome(s.id)}>
-                  <div className="icon">{s.icon}</div>
+                  <div className="icon"><SubjectIcon icon={s.icon}/></div>
                   <div className="label">{s.shortName}</div>
                   <div className="frac">{learned}/{total}</div>
                 </button>
@@ -4999,7 +5123,7 @@ function App(){
       <React.Fragment>
         <div className="backbar">
           <button className="backbtn" onClick={goDashboard}>←</button>
-          <div className="icon-badge-sm" style={{background:subject.soft}}>{subject.icon}</div>
+          <div className="icon-badge-sm" style={{background:subject.soft}}><SubjectIcon icon={subject.icon}/></div>
           <div>
             <div className="qnum">{subject.name}</div>
             <h1 style={{margin:0, fontSize:"21px"}}>{subject.tagline}</h1>
@@ -5082,7 +5206,7 @@ function App(){
       <React.Fragment>
         <div className="backbar">
           <button className="backbtn" onClick={goDashboard}>←</button>
-          <div className="icon-badge-sm" style={{background:subject.soft}}>{subject.icon}</div>
+          <div className="icon-badge-sm" style={{background:subject.soft}}><SubjectIcon icon={subject.icon}/></div>
           <div>
             <div className="qnum">{subject.name}</div>
             <h1 style={{margin:0, fontSize:"21px"}}>{subject.tagline}</h1>
@@ -5347,7 +5471,7 @@ function App(){
               </div>
             </div>
           ) : (
-            <div className="journal-page">
+            <div className="journal-page learn-page">
               <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10, flexWrap:"wrap"}}>
                 <h3 style={{marginTop:0}}>{lesson.title}{lesson.sub ? " — " + lesson.sub : ""}</h3>
                 <div style={{display:"flex", gap:8, flexWrap:"wrap"}}>
@@ -5358,32 +5482,45 @@ function App(){
               {rawLesson.homeQuarterId !== quarter.id && (
                 <p className="sub">📦 Originally in {subject.quarters.find(q=>q.id===rawLesson.homeQuarterId).num}, moved to {quarter.num}.</p>
               )}
-              {getLessonVideos(lesson).map((url, i)=>{
-                const vid = youtubeEmbedId(url);
-                return vid ? (
-                  <div className="video-embed" key={i}>
-                    <iframe
-                      src={"https://www.youtube.com/embed/" + vid}
-                      title={lesson.title + " video " + (i+1)}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    ></iframe>
-                  </div>
-                ) : null;
-              })}
               {(()=>{
+                // On desktop, video(s) and notes sit side by side (video sticky) instead of
+                // stacking full-width one after another — keeps the Learn tab from turning
+                // into one very long scroll on a wide screen, while mobile keeps the simple
+                // stacked order.
+                const videoIds = getLessonVideos(lesson).map(youtubeEmbedId).filter(Boolean);
                 const notes = getLessonNotes(lesson);
                 const multiple = notes.length > 1;
-                return notes.map((note, i)=>(
-                  multiple ? (
-                    <div className="note-card" key={note.id || i}>
-                      <div className="note-card-head">📝 Note {i+1}</div>
-                      <div className="note-view" dangerouslySetInnerHTML={{__html: note.html}}></div>
-                    </div>
-                  ) : (
-                    <div className="note-view" key={note.id || i} dangerouslySetInnerHTML={{__html: note.html}}></div>
-                  )
-                ));
+                const videoBlock = videoIds.length > 0 ? (
+                  <div className="learn-video-col">
+                    {videoIds.map((vid, i)=>(
+                      <div className="video-embed" key={i}>
+                        <iframe
+                          src={"https://www.youtube.com/embed/" + vid}
+                          title={lesson.title + " video " + (i+1)}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        ></iframe>
+                      </div>
+                    ))}
+                  </div>
+                ) : null;
+                const notesBlock = (
+                  <div className="learn-notes-col">
+                    {notes.map((note, i)=>(
+                      multiple ? (
+                        <div className="note-card" key={note.id || i}>
+                          <div className="note-card-head">📝 Note {i+1}</div>
+                          <div className="note-view" dangerouslySetInnerHTML={{__html: note.html}}></div>
+                        </div>
+                      ) : (
+                        <div className="note-view" key={note.id || i} dangerouslySetInnerHTML={{__html: note.html}}></div>
+                      )
+                    ))}
+                  </div>
+                );
+                return videoBlock ? (
+                  <div className="learn-layout">{videoBlock}{notesBlock}</div>
+                ) : notesBlock;
               })()}
               <div className="learn-footer">
                 <button className="btn btn-primary" style={{background:quarter.color}} onClick={()=>{markLearned(lesson.id); setTab("quiz");}}>
@@ -5542,7 +5679,7 @@ function App(){
   const headerBar = (
     <div className={"app-header" + (nav.subjectId ? " app-header-footer" : "")}>
       <div className="brand" onClick={goDashboard} style={{cursor:"pointer"}}>
-        <div className="brand-badge" style={{background:headerBg}}>{headerIcon}</div>
+        <div className="brand-badge" style={{background:headerBg}}><SubjectIcon icon={headerIcon}/></div>
         <div className="brand-text">
           <div className="eyebrow">Sacred Heart Academy of Pasig</div>
           <h1>{headerLabel}</h1>
@@ -5559,6 +5696,7 @@ function App(){
           }}
         >{settings.soundEnabled !== false ? "🔊" : "🔇"}</button>
         <button className="settings-btn" title="Save everything now" onClick={saveEverythingNow}>💾</button>
+        <button className="settings-btn" title="Profile (coming soon)" disabled>👤</button>
         <button className="settings-btn" title="Export all data as JSON" onClick={exportAllData}>⬇️</button>
         <button className="settings-btn" title="Import data from JSON backup" onClick={()=>importInputRef.current && importInputRef.current.click()}>⬆️</button>
         <input
