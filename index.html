@@ -3012,6 +3012,11 @@ const STORY_NARRATOR_KEY = "__narrator__";
 // whatever's installed). Any other value is a language code taken straight
 // from an installed voice's lang tag (e.g. "fil", "tl", "es").
 const STORY_VOICE_LANG_KEY = "grade2-story-voice-lang";
+// Which narration engine a story card uses: "browser" (free, default) or
+// "gemini" (Gemini 3.1 Flash TTS, see the GEMINI TTS block below). This is
+// just a preference (no secrets), so it's fine to live under the gs2_
+// prefix and sync normally like everything else.
+const STORY_NARRATION_MODE_KEY = "gs2_story_narration_mode_v1";
 function loadStoryVoiceLangPref(){
   try{ return localStorage.getItem(STORY_VOICE_LANG_KEY) || ""; }catch(e){ return ""; }
 }
@@ -3140,6 +3145,376 @@ function playStory(text, {onSegment, onEnd, lang} = {}){
   }
   speakNext();
   return { stop(){ stopped = true; speechSynthesis.cancel(); } };
+}
+
+/* =========================================================
+   GEMINI TTS — optional higher-quality narration via Gemini 3.1 Flash
+   TTS (preview). The free browser voice above (playStory) stays the
+   default; this is an opt-in upgrade for whoever has an API key.
+
+   Every story is split into "parts" of at most 2 distinct speakers and
+   at most 6 lines each — both because the API only accepts up to 2
+   speaker voices per call, and so one long story isn't riding on a
+   single giant, slow, easy-to-rate-limit request: if one part fails
+   (network hiccup, free-tier limit, etc.) the rest still play, instead
+   of the whole story going silent.
+   ========================================================= */
+
+// Deliberately NOT prefixed with "gs2_" or "ta-" — those are the only
+// prefixes isSyncedKey() above watches, and pushToCloud() bundles every
+// matching key into one blob that's PUT to a Firebase DB with open
+// read/write (see the FIREBASE comment near the top of this file). An
+// API key must never end up in that payload, so it's stored under its
+// own key name that the sync code will never see or touch — it still
+// persists in localStorage on this device, just outside the sync net.
+const GEMINI_KEY_STORAGE = "local_only_gemini_tts_key";
+function loadGeminiApiKey(){
+  try{ return localStorage.getItem(GEMINI_KEY_STORAGE) || ""; }catch(e){ return ""; }
+}
+
+/* ---------------------------------------------------------------
+   STORY AUDIO CACHE — on-device only (IndexedDB), never touches
+   Firebase/cloud sync. The very first time a story is played with
+   the Gemini voice, every part is generated and stitched into ONE
+   full-story WAV file, which is saved here. Every play after that
+   reuses the saved file instead of calling the API again — no
+   repeat API cost, and it still plays back with the device fully
+   offline. Audio is stored in IndexedDB rather than localStorage
+   because localStorage only holds small text strings (a few MB
+   total, shared with everything else the app saves); IndexedDB is
+   the browser storage built for larger binary data like audio, but
+   like localStorage it lives only on this device/browser and is
+   never uploaded anywhere.
+   --------------------------------------------------------------- */
+// Named "local_only_" (not "gs2_") on purpose — same reason as the Gemini
+// key above: gs2_/ta- is the prefix the Firebase sync code watches for in
+// localStorage, and this name should never look like it's part of that.
+// It's IndexedDB, a completely separate storage system Firebase sync code
+// never reads from, but keeping the name unambiguous avoids any confusion.
+const STORY_AUDIO_DB_NAME = "local_only_story_audio_cache";
+const STORY_AUDIO_STORE = "clips";
+function openStoryAudioDB(){
+  return new Promise((resolve, reject)=>{
+    try{
+      const req = indexedDB.open(STORY_AUDIO_DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if(!db.objectStoreNames.contains(STORY_AUDIO_STORE)) db.createObjectStore(STORY_AUDIO_STORE);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    }catch(e){ reject(e); }
+  });
+}
+// Small, fast, non-cryptographic string hash (djb2) — plenty for a
+// cache key. Same story text always produces the same key, so an
+// edited story naturally gets treated as new and re-generated; the
+// old cached entry for the previous version just goes unused.
+function hashStoryText(text){
+  let h = 5381;
+  for(let i=0;i<text.length;i++){ h = ((h*33) ^ text.charCodeAt(i)) >>> 0; }
+  return h.toString(36) + "_" + text.length;
+}
+function storyAudioCacheKey(noteId, text){
+  return "story_" + (noteId || "x") + "_" + hashStoryText(text || "");
+}
+async function getCachedStoryAudio(key){
+  try{
+    const db = await openStoryAudioDB();
+    return await new Promise((resolve, reject)=>{
+      const tx = db.transaction(STORY_AUDIO_STORE, "readonly");
+      const req = tx.objectStore(STORY_AUDIO_STORE).get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }catch(e){ return null; }
+}
+async function setCachedStoryAudio(key, blob){
+  try{
+    const db = await openStoryAudioDB();
+    return await new Promise((resolve, reject)=>{
+      const tx = db.transaction(STORY_AUDIO_STORE, "readwrite");
+      tx.objectStore(STORY_AUDIO_STORE).put(blob, key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  }catch(e){ return false; }
+}
+async function deleteCachedStoryAudio(key){
+  try{
+    const db = await openStoryAudioDB();
+    return await new Promise((resolve, reject)=>{
+      const tx = db.transaction(STORY_AUDIO_STORE, "readwrite");
+      tx.objectStore(STORY_AUDIO_STORE).delete(key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  }catch(e){ return false; }
+}
+// Rough per-segment start times for highlighting cached playback,
+// where we no longer have real per-part timing — split total audio
+// duration proportionally by each line's character length.
+function estimateSegmentStarts(segments, totalDuration){
+  const lens = segments.map(s => Math.max(1, (s.text || "").length));
+  const totalLen = lens.reduce((a,b)=>a+b, 0) || 1;
+  let acc = 0;
+  return lens.map(len => {
+    const start = (acc / totalLen) * totalDuration;
+    acc += len;
+    return start;
+  });
+}
+function saveGeminiApiKey(key){
+  try{
+    if(key) localStorage.setItem(GEMINI_KEY_STORAGE, key);
+    else localStorage.removeItem(GEMINI_KEY_STORAGE);
+  }catch(e){}
+  // Each open StoryCard keeps its own copy of the key in React state
+  // (see useGeminiApiKey below) — broadcast so all of them pick up a
+  // change immediately instead of only on their next mount.
+  window.dispatchEvent(new Event("gemini-key-changed"));
+}
+
+const GEMINI_TTS_MODEL = "gemini-3.1-flash-tts-preview";
+const GEMINI_TTS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
+
+// Documented prebuilt voice names (Gemini TTS "Voice options" table,
+// ai.google.dev/gemini-api/docs/speech-generation#voices). This is a
+// preview API — if Google ever renames/retires one of these and a
+// request starts getting rejected for an unknown voice, this is the
+// one place to edit.
+const GEMINI_TTS_VOICES = [
+  "Kore","Puck","Zephyr","Charon","Fenrir","Leda","Orus","Aoede",
+  "Callirrhoe","Autonoe","Enceladus","Iapetus","Umbriel","Algieba",
+  "Despina","Erinome","Algenib","Rasalgethi","Laomedeia","Achernar",
+  "Alnilam","Schedar","Gacrux","Pulcherrima","Achird","Zubenelgenubi",
+  "Vindemiatrix","Sadachbia","Sadaltager","Sulafat"
+];
+
+// Same idea as assignStoryVoices() above (deterministic per-character
+// voice, so the same character sounds the same every read) but drawing
+// from the Gemini voice list, and using "Narrator" as the label for
+// unattributed lines since Gemini's multi-speaker mode requires every
+// speaker to be named.
+function assignGeminiVoices(segments){
+  const names = Array.from(new Set(segments.map(s=>s.speaker || "Narrator")));
+  const map = {};
+  names.forEach((name, i)=>{ map[name] = GEMINI_TTS_VOICES[i % GEMINI_TTS_VOICES.length]; });
+  return map;
+}
+
+// Splits a story's segments into parts of at most 2 distinct speakers
+// and at most 6 lines each. A new part starts as soon as either limit
+// would be exceeded by the next line.
+function chunkStoryForGemini(segments){
+  const parts = [];
+  let current = null;
+  segments.forEach(seg=>{
+    const label = seg.speaker || "Narrator";
+    if(current){
+      const speakerCountAfter = current.speakerSet.size + (current.speakerSet.has(label) ? 0 : 1);
+      if(current.lines.length >= 6 || speakerCountAfter > 2){
+        parts.push(current);
+        current = null;
+      }
+    }
+    if(!current) current = { speakerSet: new Set(), lines: [] };
+    current.speakerSet.add(label);
+    current.lines.push({ label, text: seg.text });
+  });
+  if(current && current.lines.length) parts.push(current);
+  return parts;
+}
+
+// Raw PCM (16-bit, mono, 24kHz — Gemini TTS's output format) needs a
+// 44-byte WAV header wrapped around it before <audio>/Audio() will
+// play it directly from a Blob URL.
+// Accepts an array of base64 PCM chunks (one per story "part", in
+// order) and wraps them behind a SINGLE WAV header, so many API
+// responses become one seamless full-story audio file — this is the
+// file that gets cached and replayed later.
+function base64PcmChunksToWavBlob(base64Chunks, sampleRate, channels){
+  sampleRate = sampleRate || 24000;
+  channels = channels || 1;
+  const byteArrays = base64Chunks.map(b64 => {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  });
+  const len = byteArrays.reduce((sum, a) => sum + a.length, 0);
+  const blockAlign = channels * 2;
+  const byteRate = sampleRate * blockAlign;
+  const buffer = new ArrayBuffer(44 + len);
+  const view = new DataView(buffer);
+  function writeStr(offset, str){ for(let i=0;i<str.length;i++) view.setUint8(offset+i, str.charCodeAt(i)); }
+  writeStr(0, "RIFF"); view.setUint32(4, 36+len, true); writeStr(8, "WAVE");
+  writeStr(12, "fmt "); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+  view.setUint16(22, channels, true); view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true); view.setUint16(32, blockAlign, true); view.setUint16(34, 16, true);
+  writeStr(36, "data"); view.setUint32(40, len, true);
+  const out = new Uint8Array(buffer, 44);
+  let offset = 0;
+  byteArrays.forEach(a => { out.set(a, offset); offset += a.length; });
+  return new Blob([buffer], { type: "audio/wav" });
+}
+function pcm16ToWavBlob(base64Pcm, sampleRate, channels){
+  return base64PcmChunksToWavBlob([base64Pcm], sampleRate, channels);
+}
+
+// One network call per "part" (see chunkStoryForGemini). Throws on
+// failure so the caller can skip just this part instead of losing the
+// whole story.
+async function callGeminiTTS(apiKey, part, voiceMap){
+  const speakers = Array.from(part.speakerSet);
+  const isMulti = speakers.length > 1;
+  const linesText = part.lines.map(l => `${l.label}: ${l.text}`).join("\n");
+  const input = isMulti
+    ? `TTS the following story for young children, in a warm, natural, gentle storytelling voice:\n${linesText}`
+    : `Say in a warm, natural, gentle storytelling voice for young children:\n${part.lines.map(l=>l.text).join(" ")}`;
+  // Multi-speaker mode needs each speaker's name in generation_config to
+  // exactly match the name used in the prompt text above.
+  const speechConfig = isMulti
+    ? speakers.map(s => ({ speaker: s, voice: voiceMap[s] }))
+    : [{ voice: voiceMap[speakers[0]] }];
+
+  const res = await fetch(GEMINI_TTS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+    body: JSON.stringify({
+      model: GEMINI_TTS_MODEL,
+      input,
+      response_format: { type: "audio" },
+      generation_config: { speech_config: speechConfig }
+    })
+  });
+  if(!res.ok){
+    let detail = "";
+    try{ detail = (await res.text()).slice(0, 200); }catch(e){}
+    throw new Error(`Gemini TTS request failed (${res.status})${detail ? ": " + detail : ""}`);
+  }
+  const data = await res.json();
+  const b64 = data && data.output_audio && data.output_audio.data;
+  if(!b64) throw new Error("Gemini TTS returned no audio");
+  return b64;
+}
+
+// Plays a story using Gemini TTS, one <Audio> per part, parts in
+// sequence. Falls back to the free browser voice (playStory) if no key
+// is set — that's the ONLY point where it can fall back; once Gemini
+// playback has started, a part that fails is skipped (via onPartError),
+// never swapped mid-story to the browser voice, so a story is always
+// either fully Gemini or fully browser, never a mix of the two.
+// onProgress({part, total, phase}) fires per part — phase is "loading"
+// while the API call is in flight, then "playing" once audio starts —
+// so the UI can show "generating part 2 of 5" / "playing part 2 of 5".
+// noteId lets the cache tell two different story cards apart even if
+// their text briefly matches; text is still the real cache key driver
+// (edit a story and it's treated as new).
+function playStoryWithGemini(text, {onSegment, onEnd, onPartError, onProgress, onFallback, noteId, forceRegenerate} = {}){
+  const apiKey = loadGeminiApiKey();
+  const segments = parseStorySegments(text);
+  if(!apiKey || !segments.length){
+    if(onFallback) onFallback();
+    return playStory(text, {onSegment, onEnd});
+  }
+  const cacheKey = storyAudioCacheKey(noteId, text);
+  let stopped = false;
+  let audioEl = null;
+  let timeupdateHandler = null;
+
+  function playWholeBlob(blob, fromCache){
+    if(stopped) return;
+    const url = URL.createObjectURL(blob);
+    audioEl = new Audio(url);
+    audioEl.addEventListener("loadedmetadata", () => {
+      const realStarts = estimateSegmentStarts(segments, audioEl.duration || 0);
+      timeupdateHandler = () => {
+        let idx = 0;
+        for(let i=0;i<realStarts.length;i++){ if(audioEl.currentTime >= realStarts[i]) idx = i; }
+        if(onSegment) onSegment(idx);
+      };
+      audioEl.addEventListener("timeupdate", timeupdateHandler);
+    });
+    if(onProgress) onProgress({ part: 1, total: 1, phase: fromCache ? "cached" : "playing" });
+    audioEl.onended = () => { URL.revokeObjectURL(url); if(onEnd) onEnd(); };
+    audioEl.onerror = () => { URL.revokeObjectURL(url); if(onEnd) onEnd(); };
+    audioEl.play().catch(()=>{ if(onEnd) onEnd(); });
+  }
+
+  (async () => {
+    if(!forceRegenerate){
+      const cached = await getCachedStoryAudio(cacheKey);
+      if(cached && !stopped){ playWholeBlob(cached, true); return; }
+    }
+    // No cached full-story audio yet (or a fresh version was requested) —
+    // generate every part now, playing progressively, while also saving
+    // each part's raw audio so the complete story can be stitched into
+    // one file and stored once every part has succeeded.
+    const parts = chunkStoryForGemini(segments);
+    const voiceMap = assignGeminiVoices(segments);
+    const collected = new Array(parts.length).fill(null);
+    let anyPartFailed = false;
+    let globalIdx = 0;
+
+    async function playPart(partIdx){
+      if(stopped) return;
+      if(partIdx >= parts.length){
+        if(!anyPartFailed && collected.every(c => c)){
+          if(onProgress) onProgress({ part: parts.length, total: parts.length, phase: "saving" });
+          try{
+            const fullBlob = base64PcmChunksToWavBlob(collected);
+            await setCachedStoryAudio(cacheKey, fullBlob);
+          }catch(e){ console.warn("Could not save story audio to device storage:", e); }
+        }
+        if(onEnd) onEnd();
+        return;
+      }
+      const part = parts[partIdx];
+      if(onSegment) onSegment(globalIdx);
+      if(onProgress) onProgress({ part: partIdx+1, total: parts.length, phase: "loading" });
+      function advance(){ globalIdx += part.lines.length; playPart(partIdx+1); }
+      try{
+        const b64 = await callGeminiTTS(apiKey, part, voiceMap);
+        if(stopped) return;
+        collected[partIdx] = b64;
+        const blob = pcm16ToWavBlob(b64);
+        const url = URL.createObjectURL(blob);
+        audioEl = new Audio(url);
+        if(onProgress) onProgress({ part: partIdx+1, total: parts.length, phase: "playing" });
+        audioEl.onended = () => { URL.revokeObjectURL(url); advance(); };
+        audioEl.onerror = () => { URL.revokeObjectURL(url); advance(); };
+        audioEl.play().catch(advance);
+      }catch(e){
+        console.warn("Gemini TTS part failed, skipping:", e.message);
+        anyPartFailed = true;
+        if(onPartError) onPartError(e, partIdx);
+        advance();
+      }
+    }
+    playPart(0);
+  })();
+
+  return { stop(){
+    stopped = true;
+    if(audioEl){
+      if(timeupdateHandler) audioEl.removeEventListener("timeupdate", timeupdateHandler);
+      audioEl.pause();
+      audioEl = null;
+    }
+  } };
+}
+
+// Small hook so any StoryCard reflects the current Gemini key without a
+// full remount — see saveGeminiApiKey()'s broadcast above.
+function useGeminiApiKey(){
+  const [key, setKey] = useState(()=>loadGeminiApiKey());
+  useEffect(()=>{
+    function refresh(){ setKey(loadGeminiApiKey()); }
+    window.addEventListener("gemini-key-changed", refresh);
+    return ()=> window.removeEventListener("gemini-key-changed", refresh);
+  }, []);
+  return key;
 }
 
 // Converts the {name, lines:[{speaker,text}]} / bare-array JSON format (the
@@ -4491,8 +4866,24 @@ function StoryCard({note, index}){
   const [activeIdx, setActiveIdx] = useState(-1);
   const [langOptions, setLangOptions] = useState(()=>getStoryLanguageOptions());
   const [selectedLang, setSelectedLang] = useState(()=>loadStoryVoiceLangPref());
+  const [narrationMode, setNarrationModeState] = useState(()=>{
+    try{ return localStorage.getItem(STORY_NARRATION_MODE_KEY) || "browser"; }catch(e){ return "browser"; }
+  });
+  const [showKeyInput, setShowKeyInput] = useState(false);
+  const [keyDraft, setKeyDraft] = useState("");
+  const [statusMsg, setStatusMsg] = useState("");
+  const [progressText, setProgressText] = useState("");
+  const [hasCachedAudio, setHasCachedAudio] = useState(false);
+  const geminiKey = useGeminiApiKey();
   const controllerRef = useRef(null);
   const segments = useMemo(()=>parseStorySegments(note.text || ""), [note.text]);
+  const cacheKey = useMemo(()=>storyAudioCacheKey(note.id, note.text || ""), [note.id, note.text]);
+
+  useEffect(()=>{
+    let cancelled = false;
+    getCachedStoryAudio(cacheKey).then(blob => { if(!cancelled) setHasCachedAudio(!!blob); });
+    return ()=>{ cancelled = true; };
+  }, [cacheKey]);
 
   useEffect(()=>{
     function refresh(){ setLangOptions(getStoryLanguageOptions()); }
@@ -4508,15 +4899,40 @@ function StoryCard({note, index}){
     controllerRef.current = null;
     setPlaying(false);
     setActiveIdx(-1);
+    setProgressText("");
   }
-  function handlePlay(){
+  function handlePlay(forceRegenerate){
     if(playing){ stopPlayback(); return; }
+    if(narrationMode === "gemini" && !geminiKey){
+      setShowKeyInput(true);
+      return;
+    }
+    setStatusMsg("");
     setPlaying(true);
-    controllerRef.current = playStory(note.text || "", {
-      lang: selectedLang,
-      onSegment: idx => setActiveIdx(idx),
-      onEnd: () => { controllerRef.current = null; setPlaying(false); setActiveIdx(-1); }
-    });
+    if(narrationMode === "gemini"){
+      setProgressText(forceRegenerate ? "✨ Gemini — regenerating…" : "✨ Gemini — checking saved audio…");
+      controllerRef.current = playStoryWithGemini(note.text || "", {
+        noteId: note.id,
+        forceRegenerate: !!forceRegenerate,
+        onSegment: idx => setActiveIdx(idx),
+        onProgress: ({part, total, phase}) => {
+          if(phase === "cached") setProgressText("💾 Playing saved audio (no internet needed)");
+          else if(phase === "loading") setProgressText(`✨ Gemini — generating part ${part} of ${total}…`);
+          else if(phase === "saving") setProgressText("💾 Saving full narration to this device…");
+          else setProgressText(`✨ Gemini — playing part ${part} of ${total}`);
+        },
+        onEnd: () => { controllerRef.current = null; setPlaying(false); setActiveIdx(-1); setProgressText(""); getCachedStoryAudio(cacheKey).then(b=>setHasCachedAudio(!!b)); },
+        onPartError: () => setStatusMsg("⚠️ A part had trouble — skipped ahead so the story keeps going."),
+        onFallback: () => { setProgressText("🔊 Standard voice (no Gemini key set)"); setStatusMsg("ℹ️ No Gemini key saved — played with the standard voice instead."); }
+      });
+    } else {
+      setProgressText("🔊 Standard voice — playing");
+      controllerRef.current = playStory(note.text || "", {
+        lang: selectedLang,
+        onSegment: idx => setActiveIdx(idx),
+        onEnd: () => { controllerRef.current = null; setPlaying(false); setActiveIdx(-1); setProgressText(""); }
+      });
+    }
   }
   function handleLangChange(e){
     const v = e.target.value;
@@ -4526,6 +4942,18 @@ function StoryCard({note, index}){
     // simplest and least surprising is to stop and let them hit Play again.
     if(playing) stopPlayback();
   }
+  function handleModeChange(mode){
+    setNarrationModeState(mode);
+    try{ localStorage.setItem(STORY_NARRATION_MODE_KEY, mode); }catch(e){}
+    setStatusMsg("");
+    if(playing) stopPlayback();
+    if(mode === "gemini" && !geminiKey) setShowKeyInput(true);
+  }
+  function handleSaveKey(){
+    saveGeminiApiKey(keyDraft.trim());
+    setKeyDraft("");
+    setShowKeyInput(false);
+  }
   useEffect(()=>()=>{ if(controllerRef.current) controllerRef.current.stop(); }, []);
 
   return (
@@ -4533,7 +4961,16 @@ function StoryCard({note, index}){
       <div className="note-card-head">
         <span>🎭 {note.name && note.name.trim() ? note.name.trim() : "Story " + index}</span>
         <div className="story-head-controls">
-          {langOptions.length > 0 && (
+          <select
+            className="story-lang-select"
+            value={narrationMode}
+            onChange={e=>handleModeChange(e.target.value)}
+            title="Narration voice engine"
+          >
+            <option value="browser">🔊 Standard voice</option>
+            <option value="gemini">✨ Gemini AI voice</option>
+          </select>
+          {narrationMode === "browser" && langOptions.length > 0 && (
             <select
               className="story-lang-select"
               value={selectedLang}
@@ -4546,11 +4983,54 @@ function StoryCard({note, index}){
               ))}
             </select>
           )}
-          <button type="button" className="story-play-btn" onClick={handlePlay}>
+          {narrationMode === "gemini" && (
+            <button type="button" className="note-remove-btn" onClick={()=>setShowKeyInput(v=>!v)} title="Set your Gemini API key">
+              🔑 {geminiKey ? "Change key" : "Set key"}
+            </button>
+          )}
+          {narrationMode === "gemini" && hasCachedAudio && !playing && (
+            <button
+              type="button"
+              className="note-remove-btn"
+              title="Delete the saved audio for this story and generate it fresh next time you press Play"
+              onClick={async ()=>{
+                await deleteCachedStoryAudio(cacheKey);
+                setHasCachedAudio(false);
+                setStatusMsg("🗑️ Saved audio cleared — next Play will regenerate it.");
+              }}
+            >
+              🗑️ Clear saved audio
+            </button>
+          )}
+          <button type="button" className="story-play-btn" onClick={()=>handlePlay(false)}>
             {playing ? "⏹ Stop" : "▶️ Play"}
           </button>
         </div>
       </div>
+      {showKeyInput && (
+        <div className="story-json-panel">
+          <p className="story-hint">
+            Paste a Gemini API key (from Google AI Studio) to use realistic AI narration instead of the device's built-in voice. It's saved only on this device and is never included in the cloud sync.
+          </p>
+          <div style={{display:"flex", gap:8, flexWrap:"wrap"}}>
+            <input
+              type="password"
+              className="note-name-input"
+              style={{flex:1, minWidth:180}}
+              value={keyDraft}
+              onChange={e=>setKeyDraft(e.target.value)}
+              placeholder="Gemini API key"
+            />
+            <button type="button" className="btn btn-primary btn-sm" onClick={handleSaveKey} disabled={!keyDraft.trim()}>Save</button>
+            <button type="button" className="btn btn-sm" onClick={()=>{ setShowKeyInput(false); setKeyDraft(""); }}>Cancel</button>
+          </div>
+        </div>
+      )}
+      {progressText && <p className="story-hint" style={{fontWeight:600}}>{progressText}</p>}
+      {statusMsg && <p className="story-hint" style={{color:"#c44"}}>{statusMsg}</p>}
+      {narrationMode === "gemini" && !progressText && !statusMsg && (
+        <p className="story-hint">{hasCachedAudio ? "💾 Full narration saved on this device — plays instantly, no internet or API call needed." : "Not generated yet — the first Play will call Gemini once, then save the audio here for every replay after."}</p>
+      )}
       <div className="story-body">
         {segments.length === 0 ? (
           <p className="story-line narration">This story is empty — add some text in the editor.</p>
