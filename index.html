@@ -1309,10 +1309,14 @@ const {
 const FIREBASE_DB_URL = "https://grade2-c6f51-default-rtdb.firebaseio.com/";
 const CLOUD_URL = FIREBASE_DB_URL + "grade2_passport.json";
 const LS_PREFIX = "gs2_"; // every localStorage key this app uses starts with this
-// The embedded Typing Arcade games (Galaxy Blaster, etc.) use their own
-// "ta-" prefix for coins/unlocked ships/stickers — sync those too so
-// arcade progress carries across devices just like everything else.
-const LS_PREFIXES = [LS_PREFIX, "ta-"];
+// The embedded Typing Arcade game (Galaxy Blaster) is loaded with
+// ?grade=2, which makes it prefix its own keys "g2-ta-..." (coins,
+// unlocked ships, unlocked worlds, unlocked powers, etc.) so its saves
+// never collide with the Grade 4 app's on the same origin. Sync those
+// too so arcade progress carries across devices like everything else.
+// "ta-" (no grade prefix) is kept for backward compatibility with any
+// saves made before the game had grade-scoped keys.
+const LS_PREFIXES = [LS_PREFIX, "g2-ta-", "ta-"];
 function isSyncedKey(k) {
   return !!k && LS_PREFIXES.some(p => k.indexOf(p) === 0);
 }
@@ -1337,11 +1341,12 @@ function queueCloudSync() {
   cloudSyncTimer = setTimeout(pushToCloud, 600);
 }
 
-// The Galaxy Blaster iframe is an unsandboxed srcDoc frame, so it shares
-// this page's origin and localStorage. When it writes ta-coins / ta-
-// unlocked-ships / ta-stickers directly, the browser fires a "storage"
-// event on THIS outer window (never on the frame that made the change) —
-// so listening here is what catches arcade progress and queues a sync.
+// The Galaxy Blaster iframe is a same-origin frame (not sandboxed), so it
+// shares this page's localStorage. When it writes g2-ta-coins / g2-ta-
+// unlocked-ships / g2-ta-unlocked-worlds directly, the browser fires a
+// "storage" event on THIS outer window (never on the frame that made the
+// change) — so listening here is what catches arcade progress and queues
+// a sync.
 window.addEventListener("storage", e => {
   if (isSyncedKey(e.key)) queueCloudSync();
 });
@@ -2958,7 +2963,7 @@ function starPoints(cx, cy, spikes, outerR, innerR) {
 // The Philippine flag, drawn as a real vector graphic rather than the 🇵🇭 emoji —
 // flag emoji don't render as actual flags on plenty of desktop browsers/OSes
 // (Windows in particular just shows the letters "PH"), so this shows correctly everywhere.
-function PHFlagIcon() {
+const PHFlagIcon = /*#__PURE__*/React.memo(function PHFlagIcon() {
   return /*#__PURE__*/React.createElement("svg", {
     viewBox: "0 0 30 20",
     width: "1em",
@@ -2998,15 +3003,15 @@ function PHFlagIcon() {
     points: starPoints(13.2, 10, 5, 1.1, 0.45),
     fill: "#FCD116"
   }));
-}
+});
 // Renders a subject's icon — the "PH_FLAG" sentinel becomes the real vector flag above;
 // everything else (all the other subjects' emoji) displays exactly as it did before.
-function SubjectIcon({
+const SubjectIcon = /*#__PURE__*/React.memo(function SubjectIcon({
   icon
 }) {
   if (icon === "PH_FLAG") return /*#__PURE__*/React.createElement(PHFlagIcon, null);
   return icon;
-}
+});
 
 /* =========================================================
    HELPERS
@@ -8658,817 +8663,1262 @@ function QuestionBankManager({
    MAIN APP
    ========================================================= */
 
-function App() {
-  const [progress, setProgress] = useState(loadProgress());
-  const [edits, setEdits] = useState(loadEdits());
-  const [bank, setBank] = useState(loadBank());
-  const [moves, setMoves] = useState(loadMoves());
-  const [customLessons, setCustomLessons] = useState(loadCustomLessons());
-  const [settings, setSettings] = useState(loadSettings());
-  const [notes, setNotes] = useState(loadNotes());
-  const [activity, setActivity] = useState(loadActivity());
-  const [generalKnown, setGeneralKnown] = useState(loadGeneralKnown());
-  const [grades, setGrades] = useState(loadGrades());
-  const [gradeConfig, setGradeConfig] = useState(loadGradeConfig());
-  const [nav, setNav] = useState({
-    screen: "dashboard"
-  });
-  const [quizSession, setQuizSession] = useState(null); // {kind:'lesson'|'long', questions, accent, title, key}
-  const [saveFlash, setSaveFlash] = useState(false);
-  const importInputRef = useRef(null);
-
-  // Report-card UI state lives here (not inside GradesScreen) because GradesScreen
-  // is re-created as a brand-new component on every App render (it's declared
-  // inside App). If this state lived in GradesScreen's own useState, React would
-  // treat every grade edit as "new component -> reset local state", which is why
-  // tapping Final/Detailed (or anything that updates grades) used to snap the
-  // open subject closed. Keeping it up here means it survives those re-renders.
-  const [openSubject, setOpenSubject] = useState(null);
-  const [selectedQuarter, setSelectedQuarter] = useState(GRADE_QUARTERS[0].id);
-  const [showGradeSettings, setShowGradeSettings] = useState(false);
-  useEffect(() => {
-    saveProgress(progress);
-  }, [progress]);
-  useEffect(() => {
-    saveEdits(edits);
-  }, [edits]);
-  useEffect(() => {
-    saveBank(bank);
-  }, [bank]);
-  useEffect(() => {
-    saveMoves(moves);
-  }, [moves]);
-  useEffect(() => {
-    saveCustomLessons(customLessons);
-  }, [customLessons]);
-  useEffect(() => {
-    saveSettings(settings);
-  }, [settings]);
-  useEffect(() => {
-    saveNotes(notes);
-  }, [notes]);
-  useEffect(() => {
-    saveActivity(activity);
-  }, [activity]);
-  useEffect(() => {
-    saveGeneralKnown(generalKnown);
-  }, [generalKnown]);
-  useEffect(() => {
-    saveGrades(grades);
-  }, [grades]);
-  useEffect(() => {
-    saveGradeConfig(gradeConfig);
-  }, [gradeConfig]);
-  useEffect(() => {
-    setSoundEnabled(settings.soundEnabled !== false);
-  }, [settings.soundEnabled]);
-  useEffect(() => {
-    document.body.classList.toggle("dark-mode", !!settings.darkMode);
-  }, [settings.darkMode]);
-  useEffect(() => {
-    // If the background Firebase pull finds newer data than what we
-    // rendered with, refresh state from localStorage without a reload.
-    function onCloudSynced() {
-      setProgress(loadProgress());
-      setEdits(loadEdits());
-      setBank(loadBank());
-      setMoves(loadMoves());
-      setCustomLessons(loadCustomLessons());
-      setSettings(loadSettings());
-      setNotes(loadNotes());
-      setActivity(loadActivity());
-      setGeneralKnown(loadGeneralKnown());
-      setGrades(loadGrades());
-      setGradeConfig(loadGradeConfig());
-    }
-    window.addEventListener("gs4-cloud-synced", onCloudSynced);
-    return () => window.removeEventListener("gs4-cloud-synced", onCloudSynced);
-  }, []);
-  async function saveEverythingNow() {
-    Sound.save();
-    saveProgress(progress);
-    saveEdits(edits);
-    saveBank(bank);
-    saveMoves(moves);
-    saveCustomLessons(customLessons);
-    saveSettings(settings);
-    saveNotes(notes);
-    saveActivity(activity);
-    saveGeneralKnown(generalKnown);
-    saveGrades(grades);
-    saveGradeConfig(gradeConfig);
-    // Skip the debounce and push the full snapshot to Firebase right away.
-    clearTimeout(cloudSyncTimer);
-    const cloudOk = await pushToCloud();
-    setSaveFlash(cloudOk ? "✅ Saved to Firebase!" : "⚠️ Saved on this device only (offline)");
-    setTimeout(() => setSaveFlash(false), 1800);
-  }
-  async function exportAllData() {
-    setSaveFlash("⏳ Gathering backup (incl. offline audio)…");
-    // storyAudioCache lives in IndexedDB (not localStorage) and normally
-    // never touches Firebase/cloud sync, so it has to be pulled in
-    // separately here to make it into the JSON backup file.
-    const storyAudioCache = await exportStoryAudioCache();
-    const payload = {
-      app: "gs2-learning-passport",
-      exportedAt: new Date().toISOString(),
-      data: {
-        progress,
-        edits,
-        bank,
-        moves,
-        customLessons,
-        settings,
-        notes,
-        activity,
-        generalKnown,
-        grades,
-        gradeConfig
-      },
-      // Kept as a separate top-level section (not inside `data`) since it's
-      // IndexedDB content, not a localStorage key like everything above.
-      storyAudioCache
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: "application/json"
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const stamp = new Date().toISOString().slice(0, 10);
-    a.href = url;
-    a.download = `learning-passport-backup-${stamp}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    setSaveFlash("⬇️ Exported backup file!");
-    setTimeout(() => setSaveFlash(false), 1800);
-  }
-  function importAllData(file) {
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const parsed = JSON.parse(reader.result);
-        const d = parsed && parsed.data ? parsed.data : parsed; // allow raw or wrapped JSON
-        if (!d || typeof d !== "object") throw new Error("bad format");
-        const audioEntries = parsed && Array.isArray(parsed.storyAudioCache) ? parsed.storyAudioCache : null;
-        const audioNote = audioEntries && audioEntries.length ? ` and ${audioEntries.length} cached story audio file(s)` : "";
-        if (!window.confirm(`Import this backup? This will replace all current progress, topics, notes, and quiz bank data${audioNote} on this device.`)) return;
-        if (d.progress) setProgress(d.progress);
-        if (d.edits) setEdits(d.edits);
-        if (d.bank) setBank(d.bank);
-        if (d.moves) setMoves(d.moves);
-        if (d.customLessons) setCustomLessons(d.customLessons);
-        if (d.settings) setSettings(d.settings);
-        if (d.notes) setNotes(d.notes);
-        if (d.activity) setActivity(d.activity);
-        if (d.generalKnown) setGeneralKnown(d.generalKnown);
-        if (d.grades) setGrades(d.grades);
-        if (d.gradeConfig) setGradeConfig(d.gradeConfig);
-        // Persist immediately so a refresh doesn't race the effects.
-        if (d.progress) saveProgress(d.progress);
-        if (d.edits) saveEdits(d.edits);
-        if (d.bank) saveBank(d.bank);
-        if (d.moves) saveMoves(d.moves);
-        if (d.customLessons) saveCustomLessons(d.customLessons);
-        if (d.settings) saveSettings(d.settings);
-        if (d.notes) saveNotes(d.notes);
-        if (d.activity) saveActivity(d.activity);
-        if (d.generalKnown) saveGeneralKnown(d.generalKnown);
-        if (d.grades) saveGrades(d.grades);
-        if (d.gradeConfig) saveGradeConfig(d.gradeConfig);
-        // Restore the IndexedDB offline audio cache, if the backup has one.
-        if (audioEntries && audioEntries.length) {
-          setSaveFlash("⏳ Restoring offline audio…");
-          await importStoryAudioCache(audioEntries);
-        }
-        clearTimeout(cloudSyncTimer);
-        const cloudOk = await pushToCloud();
-        setSaveFlash(cloudOk ? "✅ Imported & synced!" : "✅ Imported (saved on this device only)");
-        setTimeout(() => setSaveFlash(false), 1800);
-      } catch (err) {
-        setSaveFlash("⚠️ Import failed: invalid file");
-        setTimeout(() => setSaveFlash(false), 2200);
-      }
-    };
-    reader.readAsText(file);
-  }
-  function logLessonLearned(lessonId) {
-    setActivity(prev => {
-      const today = todayStr();
-      if (prev.some(a => a.type === "lesson" && a.date === today && a.lessonId === lessonId)) return prev;
-      return [...prev, {
-        type: "lesson",
-        date: today,
-        lessonId,
-        ts: Date.now()
-      }];
-    });
-  }
-  function logQuestionsAnswered(count) {
-    setActivity(prev => [...prev, {
-      type: "questions",
-      date: todayStr(),
-      count,
-      ts: Date.now()
-    }]);
-  }
-  function updateSettings(patch) {
-    setSettings(prev => ({
-      ...prev,
-      ...patch
-    }));
-  }
-  function addNote(text) {
-    const t = text.trim();
-    if (!t) return;
-    setNotes(prev => [{
-      id: "n" + Date.now(),
-      text: t,
-      createdAt: Date.now()
-    }, ...prev]);
-  }
-  function deleteNote(id) {
-    setNotes(prev => prev.filter(n => n.id !== id));
-  }
-  function saveLessonEdit(lessonId, data) {
-    setEdits(prev => ({
-      ...prev,
-      [lessonId]: data
-    }));
-  }
-  function setLessonQuestions(lessonId, questions) {
-    setBank(prev => ({
-      ...prev,
-      [lessonId]: questions
-    }));
-  }
-  function getQuestions(lessonId) {
-    return bank[lessonId] || [];
-  }
-  function moveLesson(lessonId, quarterId) {
-    setMoves(prev => ({
-      ...prev,
-      [lessonId]: {
-        quarterId
-      }
-    }));
-  }
-  function addCustomTopic(subjectId, quarterId, title, sub, chapterId) {
-    const id = newLessonId();
-    setCustomLessons(prev => [...prev, {
-      id,
-      subjectId,
-      quarterId,
-      chapterId: chapterId || null,
-      title: title.trim() || "New Topic",
-      sub: (sub || "").trim(),
-      createdAt: Date.now()
-    }]);
-    return id;
-  }
-  function removeCustomTopic(lessonId) {
-    setCustomLessons(prev => prev.filter(c => c.id !== lessonId));
-    setEdits(prev => {
-      const n = {
-        ...prev
-      };
-      delete n[lessonId];
-      return n;
-    });
-    setBank(prev => {
-      const n = {
-        ...prev
-      };
-      delete n[lessonId];
-      return n;
-    });
-    setProgress(prev => {
-      const n = {
-        ...prev,
-        lessons: {
-          ...prev.lessons
-        }
-      };
-      delete n.lessons[lessonId];
-      return n;
-    });
-  }
-  function currentSubject() {
-    return SUBJECTS.find(s => s.id === nav.subjectId);
-  }
-  function goDashboard() {
-    Sound.back();
-    setNav({
-      screen: "dashboard"
-    });
-    setQuizSession(null);
-  }
-  function goNotes() {
-    Sound.nav();
-    setNav({
-      screen: "notes"
-    });
-    setQuizSession(null);
-  }
-  function goGrades() {
-    Sound.nav();
-    setNav({
-      screen: "grades"
-    });
-    setQuizSession(null);
-  }
-  function setGradeEntry(subjectId, quarterId, patch) {
-    setGrades(prev => {
-      const subj = {
-        ...(prev[subjectId] || {})
-      };
-      const q = {
-        ...(subj[quarterId] || {
-          mode: "final"
-        })
-      };
-      subj[quarterId] = {
-        ...q,
-        ...patch
-      };
-      return {
-        ...prev,
-        [subjectId]: subj
-      };
-    });
-  }
-  // Clears a manually-typed Final-mode override for one component, so it
-  // falls back to the auto-computed Detailed-items average again. Also
-  // clears the old-style value stored directly under the plain key, but
-  // only when that isn't actually holding Detailed items (an array).
-  function clearGradeFinalOverride(subjectId, quarterId, key) {
-    setGrades(prev => {
-      const subj = {
-        ...(prev[subjectId] || {})
-      };
-      const q = {
-        ...(subj[quarterId] || {
-          mode: "final"
-        })
-      };
-      const patch = {
-        [key + "Final"]: ""
-      };
-      if (q[key] != null && !Array.isArray(q[key])) patch[key] = "";
-      subj[quarterId] = {
-        ...q,
-        ...patch
-      };
-      return {
-        ...prev,
-        [subjectId]: subj
-      };
-    });
-  }
-  function defaultTotalFor(key) {
-    // WW starts out of 10, PT out of 20 (both still user-editable); QA has no
-    // preset total since it's a single graded item that varies by quarter.
-    if (key === "ww") return 10;
-    if (key === "pt") return 20;
-    return "";
-  }
-  function addGradeItem(subjectId, quarterId, key) {
-    setGrades(prev => {
-      const subj = {
-        ...(prev[subjectId] || {})
-      };
-      const q = {
-        ...(subj[quarterId] || {
-          mode: "final"
-        })
-      };
-      const existing = q[key] || [];
-      if (key === "qa" && existing.length >= 1) return prev; // only one Quarterly Assessment per quarter
-      const items = [...existing, {
-        score: "",
-        total: defaultTotalFor(key)
-      }];
-      subj[quarterId] = {
-        ...q,
-        [key]: items
-      };
-      return {
-        ...prev,
-        [subjectId]: subj
-      };
-    });
-  }
-  function removeGradeItem(subjectId, quarterId, key, idx) {
-    setGrades(prev => {
-      const subj = {
-        ...(prev[subjectId] || {})
-      };
-      const q = {
-        ...(subj[quarterId] || {
-          mode: "final"
-        })
-      };
-      const items = (q[key] || []).filter((_, i) => i !== idx);
-      subj[quarterId] = {
-        ...q,
-        [key]: items
-      };
-      return {
-        ...prev,
-        [subjectId]: subj
-      };
-    });
-  }
-  function updateGradeItem(subjectId, quarterId, key, idx, field, value) {
-    setGrades(prev => {
-      const subj = {
-        ...(prev[subjectId] || {})
-      };
-      const q = {
-        ...(subj[quarterId] || {
-          mode: "final"
-        })
-      };
-      const items = [...(q[key] || [])];
-      while (items.length <= idx) items.push({
-        score: "",
-        total: defaultTotalFor(key)
-      });
-      items[idx] = {
-        ...items[idx],
-        [field]: value
-      };
-      subj[quarterId] = {
-        ...q,
-        [key]: items
-      };
-      return {
-        ...prev,
-        [subjectId]: subj
-      };
-    });
-  }
-  function setSubjectWeight(subjectId, key, value) {
-    setGradeConfig(prev => ({
-      ...prev,
-      weights: {
-        ...prev.weights,
-        [subjectId]: {
-          ...prev.weights[subjectId],
-          [key]: value
-        }
-      }
-    }));
-  }
-  function setHonorThreshold(key, value) {
-    setGradeConfig(prev => ({
-      ...prev,
-      honors: {
-        ...prev.honors,
-        [key]: value
-      }
-    }));
-  }
-  function resetGradeConfig() {
-    setGradeConfig(defaultGradeConfig());
-  }
-  function adjustSubjectFinal(subjectId, delta) {
-    setGrades(prev => {
-      const subj = {
-        ...(prev[subjectId] || {})
-      };
-      subj.adjust = (Number(subj.adjust) || 0) + delta;
-      return {
-        ...prev,
-        [subjectId]: subj
-      };
-    });
-  }
-  const lastQuizQuestionsRef = useRef({}); // key -> question texts used last time, so "play again" avoids repeats
-  function goSubjects() {
-    Sound.back();
-    setNav({
-      screen: "subjects"
-    });
-    setQuizSession(null);
-  }
-  function goSubjectHome(sid) {
-    Sound.nav();
-    setNav({
-      screen: "home",
-      subjectId: sid
-    });
-    setQuizSession(null);
-  }
-  function goGeneral(sid) {
-    Sound.nav();
-    setNav({
-      screen: "general",
-      subjectId: sid
-    });
-    setQuizSession(null);
-  }
-  function goTyping() {
-    Sound.nav();
-    setNav({
-      screen: "typing"
-    });
-    setQuizSession(null);
-  }
-  function toggleGeneralWord(catId, word) {
-    Sound.nav();
-    setGeneralKnown(prev => {
-      const key = catId + "::" + word;
-      const next = {
-        ...prev
-      };
-      if (next[key]) delete next[key];else next[key] = true;
-      return next;
-    });
-  }
-  function goQuarter(sid, qid) {
-    Sound.nav();
-    setNav({
-      screen: "quarter",
-      subjectId: sid,
-      quarterId: qid
-    });
-    setQuizSession(null);
-  }
-  function goLesson(sid, qid, lid, startEdit) {
-    Sound.nav();
-    setNav({
-      screen: "lesson",
-      subjectId: sid,
-      quarterId: qid,
-      lessonId: lid,
-      tab: "learn",
-      startEdit: !!startEdit
-    });
-    setQuizSession(null);
-  }
-  function markLearned(lessonId) {
-    Sound.unlock();
-    const wasLearned = !!(progress.lessons[lessonId] && progress.lessons[lessonId].learned);
-    setProgress(prev => {
-      const next = {
-        ...prev,
-        lessons: {
-          ...prev.lessons
-        }
-      };
-      const rec = next.lessons[lessonId] || {};
-      next.lessons[lessonId] = {
-        ...rec,
-        learned: true
-      };
-      return next;
-    });
-    logLessonLearned(lessonId);
-  }
-  function startLessonQuiz(quarter, lesson, count, topics, qType) {
-    Sound.nav();
-    let pool = filterByTopics(getQuestions(lesson.id), topics);
-    pool = filterByType(pool, qType);
-    const n = Math.max(1, Math.min(count || pool.length, pool.length));
-    const avoid = new Set(lastQuizQuestionsRef.current[lesson.id] || []);
-    const chosen = pickAvoidingRepeats(pool, n, avoid);
-    lastQuizQuestionsRef.current[lesson.id] = chosen.map(q => q.q);
-    setQuizSession({
-      kind: "lesson",
-      key: lesson.id,
-      accent: quarter.color,
-      title: lesson.title,
-      questions: chosen
-    });
-  }
-  function startLongQuiz(quarter, count, topics, qType) {
-    Sound.nav();
+function LongQuizScreen({
+  currentSubject,
+  goQuarter,
+  handleQuizFinish,
+  nav,
+  quizSession,
+  setQuizSession,
+  startLongQuiz
+}) {
     const subject = currentSubject();
-    const lessons = quarterLessons(subject, quarter, moves, customLessons);
-    let pool = lessons.flatMap(l => getQuestions(l.id).map(q => ({
-      ...q,
-      tag: mergeLesson(l, edits).title
-    })));
-    pool = filterByTopics(pool, topics);
-    pool = filterByType(pool, qType);
-    const n = Math.max(1, Math.min(count || pool.length, pool.length));
-    const avoid = new Set(lastQuizQuestionsRef.current[quarter.id] || []);
-    const chosen = pickAvoidingRepeats(pool, n, avoid);
-    lastQuizQuestionsRef.current[quarter.id] = chosen.map(q => q.q);
-    setQuizSession({
-      kind: "long",
-      key: quarter.id,
+    const quarter = subject.quarters.find(q => q.id === nav.quarterId);
+    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: "backbar"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "backbtn",
+      onClick: () => goQuarter(subject.id, quarter.id)
+    }, "\u2190"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      className: "qnum",
+      style: {
+        color: quarter.color
+      }
+    }, subject.shortName, " \xB7 ", quarter.num, " \xB7 Long Quiz"), /*#__PURE__*/React.createElement("h1", {
+      style: {
+        margin: 0,
+        fontSize: "20px"
+      }
+    }, "\uD83C\uDFC6 ", quarter.title))), quizSession.finalAnswers ? /*#__PURE__*/React.createElement(ResultsView, {
+      answers: quizSession.finalAnswers,
       accent: quarter.color,
       title: quarter.title + " Long Quiz",
-      questions: chosen
-    });
-  }
-  function handleQuizFinish(answers) {
-    const correct = answers.filter(a => a.isCorrect).length;
-    const total = answers.length;
-    const ratio = total ? correct / total : 0;
-    const passed = ratio >= 0.7;
-    const bucket = quizSession.kind === "lesson" ? progress.lessons : progress.longQuiz;
-    const prevRec = bucket[quizSession.key];
-    const prevRatio = prevRec && prevRec.best ? prevRec.best.correct / prevRec.best.total : -1;
-    const prevPassed = prevRatio >= 0.7;
-    const isNewBest = ratio > prevRatio;
-    setProgress(prev => {
-      const next = {
-        ...prev
-      };
-      if (quizSession.kind === "lesson") {
-        next.lessons = {
-          ...prev.lessons
-        };
-        const rec = next.lessons[quizSession.key] || {};
-        const best = rec.best && rec.best.correct / rec.best.total >= correct / total ? rec.best : {
-          correct,
-          total
-        };
-        next.lessons[quizSession.key] = {
-          ...rec,
-          best,
-          last: {
-            correct,
-            total
-          }
-        };
-      } else {
-        next.longQuiz = {
-          ...prev.longQuiz
-        };
-        const rec = next.longQuiz[quizSession.key] || {};
-        const best = rec.best && rec.best.correct / rec.best.total >= correct / total ? rec.best : {
-          correct,
-          total
-        };
-        next.longQuiz[quizSession.key] = {
-          ...rec,
-          best,
-          last: {
-            correct,
-            total
-          }
-        };
+      onRetry: () => startLongQuiz(quarter),
+      onDone: () => {
+        setQuizSession(null);
+        goQuarter(subject.id, quarter.id);
       }
-      return next;
-    });
-    logQuestionsAnswered(total);
-    setQuizSession(sess => ({
-      ...sess,
-      finalAnswers: answers
+    }) : /*#__PURE__*/React.createElement(QuizRunner, {
+      questions: quizSession.questions,
+      accent: quarter.color,
+      onFinish: handleQuizFinish,
+      onStop: () => {
+        setQuizSession(null);
+        goQuarter(subject.id, quarter.id);
+      }
     }));
   }
 
-  /* ---------------- helpers across a whole subject ---------------- */
-  function subjectLessonCount(subject) {
-    return allSubjectLessons(subject, customLessons).length;
-  }
-  function subjectLearnedCount(subject, progress) {
-    return allSubjectLessons(subject, customLessons).filter(l => progress.lessons[l.id] && progress.lessons[l.id].learned).length;
-  }
-
-  /* ---------------- DASHBOARD SCREEN (app home) ---------------- */
-  function DashboardScreen() {
-    const totals = SUBJECTS.reduce((acc, s) => {
-      acc.learned += subjectLearnedCount(s, progress);
-      acc.total += subjectLessonCount(s);
-      return acc;
-    }, {
-      learned: 0,
-      total: 0
-    });
-    const overallPct = totals.total ? Math.round(totals.learned / totals.total * 100) : 0;
+function QuarterScreen({
+  addCustomTopic,
+  currentSubject,
+  customLessons,
+  edits,
+  getQuestions,
+  goLesson,
+  goSubjectHome,
+  moves,
+  nav,
+  progress,
+  removeCustomTopic,
+  setLessonQuestions,
+  startLongQuiz
+}) {
+    const subject = currentSubject();
+    const quarter = subject.quarters.find(q => q.id === nav.quarterId);
+    const isStories = subject.special === "stories";
+    const [showSetup, setShowSetup] = useState(false);
+    const [generatingIds, setGeneratingIds] = useState({});
+    const [genLesson, setGenLesson] = useState(null); // lesson currently being configured for AI generation
+    const [genCount, setGenCount] = useState(6);
+    const [genTypes, setGenTypes] = useState(new Set(GENERATE_TYPE_ORDER));
+    const [genTopic, setGenTopic] = useState("");
+    const [genTopicTag, setGenTopicTag] = useState("");
+    const [genDifficulty, setGenDifficulty] = useState("medium");
+    const lessons = quarterLessons(subject, quarter, moves, customLessons);
+    const nativeLessons = lessons.filter(l => l.homeQuarterId === quarter.id);
+    const movedInLessons = lessons.filter(l => l.homeQuarterId !== quarter.id);
+    const totalBankQ = lessons.reduce((sum, l) => sum + getQuestions(l.id).length, 0);
+    const [longCount, setLongCount] = useState(Math.min(10, totalBankQ) || 1);
+    const [longTopics, setLongTopics] = useState([TOPIC_ALL]);
+    const [longType, setLongType] = useState(TYPE_ALL);
+    const longFullPool = lessons.flatMap(l => getQuestions(l.id));
+    const longAvailTopics = bankTopics(longFullPool);
+    const longAvailTopicsWithCounts = longAvailTopics.map(t => ({
+      name: t,
+      count: longFullPool.filter(q => normTopic(q.topic) === t).length
+    }));
+    const longTopicPool = filterByTopics(longFullPool, longTopics);
+    const longFilteredCount = filterByType(longTopicPool, longType).length;
+    let counter = 0;
+    useEffect(() => {
+      setLongCount(Math.min(10, longFilteredCount) || 1);
+    }, [longTopics, longType, longFilteredCount]);
+    useEffect(() => {
+      setLongType(TYPE_ALL);
+    }, [longTopics]);
+    const [addingTopic, setAddingTopic] = useState(false);
+    const [newTopicTitle, setNewTopicTitle] = useState("");
+    const [newTopicSub, setNewTopicSub] = useState("");
+    const [newTopicChapter, setNewTopicChapter] = useState("");
+    function submitNewTopic() {
+      if (!newTopicTitle.trim()) return;
+      const id = addCustomTopic(subject.id, quarter.id, newTopicTitle, newTopicSub, newTopicChapter || null);
+      setNewTopicTitle("");
+      setNewTopicSub("");
+      setNewTopicChapter("");
+      setAddingTopic(false);
+      goLesson(subject.id, quarter.id, id, true);
+    }
+    function openGenerateSetup(l, e) {
+      if (e) {
+        e.stopPropagation();
+      }
+      if (generatingIds[l.id]) return;
+      const defaultTypes = new Set(GENERATE_TYPE_ORDER);
+      setGenLesson(l);
+      setGenTypes(defaultTypes);
+      setGenCount(getGenerateCountRange(defaultTypes).min);
+      setGenTopic("");
+      setGenTopicTag("");
+      setGenDifficulty("medium");
+    }
+    function toggleGenType(t) {
+      setGenTypes(prev => {
+        const next = new Set(prev);
+        if (next.has(t)) {
+          if (next.size > 1) next.delete(t);
+        } else {
+          next.add(t);
+        }
+        // Cascade: whenever the type selection changes, snap the count back
+        // to the automatic (lower-end) value for the new selection.
+        setGenCount(getGenerateCountRange(next).min);
+        return next;
+      });
+    }
+    async function runGenerateQuestions() {
+      const l = genLesson;
+      if (!l) return;
+      let apiKey = loadGeminiApiKey();
+      if (!apiKey) {
+        apiKey = window.prompt("Paste a free Gemini API key to generate quiz questions (get one at aistudio.google.com/apikey). It's saved on this device only, and also reused for story narration.");
+        if (!apiKey || !apiKey.trim()) return;
+        apiKey = apiKey.trim();
+        saveGeminiApiKey(apiKey);
+      }
+      setGenLesson(null);
+      setGeneratingIds(prev => ({
+        ...prev,
+        [l.id]: true
+      }));
+      try {
+        const merged = mergeLesson(l, edits);
+        const generated = await generateQuestionsForLesson(apiKey, merged, {
+          count: genCount,
+          types: Array.from(genTypes),
+          topic: genTopic,
+          tag: genTopicTag,
+          difficulty: genDifficulty,
+          existingQuestions: getQuestions(l.id).map(q => q.q)
+        });
+        if (!generated.length) {
+          alert("Gemini didn't return any usable questions for \"" + merged.title + "\". Try again in a moment.");
+        } else {
+          setLessonQuestions(l.id, [...getQuestions(l.id), ...generated]);
+          alert("✨ Added " + generated.length + " new question" + (generated.length === 1 ? "" : "s") + " to \"" + merged.title + "\"'s question bank.");
+        }
+      } catch (err) {
+        alert("Couldn't generate questions: " + (err && err.message ? err.message : "unknown error"));
+      } finally {
+        setGeneratingIds(prev => {
+          const next = {
+            ...prev
+          };
+          delete next[l.id];
+          return next;
+        });
+      }
+    }
+    function renderLessonCard(l0, moved) {
+      counter++;
+      const l = mergeLesson(l0, edits);
+      const rec = progress.lessons[l.id];
+      const learned = rec && rec.learned;
+      const best = rec && rec.best;
+      const qCount = getQuestions(l.id).length;
+      if (isStories) {
+        return /*#__PURE__*/React.createElement("button", {
+          key: l.id,
+          className: "lesson-card",
+          style: {
+            width: "100%",
+            border: "2px solid var(--line)",
+            position: "relative",
+            animationDelay: Math.min(counter * 0.04, 0.4) + "s"
+          },
+          onClick: () => goLesson(subject.id, quarter.id, l.id)
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "lesson-num",
+          style: {
+            background: quarter.color
+          }
+        }, counter), /*#__PURE__*/React.createElement("div", {
+          className: "lesson-body"
+        }, /*#__PURE__*/React.createElement("h3", null, l.title), l.sub && /*#__PURE__*/React.createElement("div", {
+          className: "sub"
+        }, l.sub), /*#__PURE__*/React.createElement("div", {
+          className: "lesson-status"
+        }, moved && /*#__PURE__*/React.createElement("span", {
+          className: "pill todo"
+        }, "\uD83D\uDCE6 Moved here"), /*#__PURE__*/React.createElement("span", {
+          className: "pill " + (learned ? "done" : "todo")
+        }, learned ? "✅ Read" : "▶ Read"))), l0.isCustom && /*#__PURE__*/React.createElement("span", {
+          role: "button",
+          title: "Delete this story",
+          className: "note-remove-btn",
+          style: {
+            position: "absolute",
+            top: 8,
+            right: 8
+          },
+          onClick: e => {
+            e.stopPropagation();
+            if (window.confirm('Delete the story "' + l.title + '"?')) {
+              removeCustomTopic(l.id);
+            }
+          }
+        }, "\u2715"), /*#__PURE__*/React.createElement("div", {
+          className: "chev"
+        }, "\u203A"));
+      }
+      return /*#__PURE__*/React.createElement("button", {
+        key: l.id,
+        className: "lesson-card",
+        style: {
+          width: "100%",
+          border: "2px solid var(--line)",
+          position: "relative",
+          animationDelay: Math.min(counter * 0.04, 0.4) + "s"
+        },
+        onClick: () => goLesson(subject.id, quarter.id, l.id)
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "lesson-num",
+        style: {
+          background: quarter.color
+        }
+      }, counter), /*#__PURE__*/React.createElement("div", {
+        className: "lesson-body"
+      }, /*#__PURE__*/React.createElement("h3", null, l.title), l.sub && /*#__PURE__*/React.createElement("div", {
+        className: "sub"
+      }, l.sub), /*#__PURE__*/React.createElement("div", {
+        className: "lesson-status"
+      }, moved && /*#__PURE__*/React.createElement("span", {
+        className: "pill todo"
+      }, "\uD83D\uDCE6 Moved here"), l0.isCustom && /*#__PURE__*/React.createElement("span", {
+        className: "pill todo"
+      }, "\u2728 My Topic"), getLessonVideos(l).some(u => youtubeEmbedId(u)) && /*#__PURE__*/React.createElement("span", {
+        className: "pill done"
+      }, "\uD83C\uDFAC Video"), /*#__PURE__*/React.createElement("span", {
+        className: "pill " + (learned ? "done" : "todo")
+      }, learned ? "📖 Learned" : "📖 Not started"), /*#__PURE__*/React.createElement("span", {
+        role: "button",
+        title: "Generate quiz questions with AI (Gemini) from this topic's notes",
+        className: "pill todo",
+        style: {
+          cursor: generatingIds[l.id] ? "default" : "pointer",
+          opacity: generatingIds[l.id] ? 0.6 : 1
+        },
+        onClick: e => openGenerateSetup(l, e)
+      }, generatingIds[l.id] ? "⏳ Generating…" : "✨ Generate"), best ? /*#__PURE__*/React.createElement("span", {
+        className: "pill " + (best.correct / best.total >= 0.7 ? "score-good" : "score-bad")
+      }, "\uD83D\uDCDD ", best.correct, "/", best.total) : /*#__PURE__*/React.createElement("span", {
+        className: "pill todo"
+      }, "\uD83D\uDCDD ", qCount ? qCount + " Qs in bank" : "No questions yet"))), l0.isCustom && /*#__PURE__*/React.createElement("span", {
+        role: "button",
+        title: "Delete this topic",
+        className: "note-remove-btn",
+        style: {
+          position: "absolute",
+          top: 8,
+          right: 8
+        },
+        onClick: e => {
+          e.stopPropagation();
+          if (window.confirm('Delete the topic "' + l.title + '"? This removes its notes and question bank too.')) {
+            removeCustomTopic(l.id);
+          }
+        }
+      }, "\u2715"), /*#__PURE__*/React.createElement("div", {
+        className: "chev"
+      }, "\u203A"));
+    }
     return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "passport"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "passport-title"
-    }, "Welcome back"), /*#__PURE__*/React.createElement("div", {
-      className: "passport-name"
-    }, "\uD83D\uDC4B Hi, Charlie!"), /*#__PURE__*/React.createElement("div", {
+      className: "backbar"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "backbtn",
+      onClick: () => goSubjectHome(subject.id)
+    }, "\u2190"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      className: "qnum",
+      style: {
+        color: quarter.color
+      }
+    }, subject.shortName, " \xB7 ", quarter.num), /*#__PURE__*/React.createElement("h1", {
+      style: {
+        margin: 0,
+        fontSize: "22px"
+      }
+    }, quarter.icon, " ", quarter.title))), quarter.chapters.map(ch => {
+      const chLessons = nativeLessons.filter(l => l.chapterId === ch.id);
+      if (!chLessons.length) return null;
+      return /*#__PURE__*/React.createElement("div", {
+        key: ch.id
+      }, /*#__PURE__*/React.createElement("h3", {
+        className: "chapter-title"
+      }, ch.title), chLessons.map(l0 => renderLessonCard(l0, false)));
+    }), (() => {
+      const myTopics = nativeLessons.filter(l => l.chapterId === "custom");
+      if (!myTopics.length) return null;
+      return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+        className: "chapter-title"
+      }, isStories ? "✨ My Stories" : "✨ My Topics"), myTopics.map(l0 => renderLessonCard(l0, false)));
+    })(), movedInLessons.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+      className: "chapter-title"
+    }, isStories ? "📦 Moved Stories" : "📦 Moved Topics"), movedInLessons.map(l0 => renderLessonCard(l0, true))), /*#__PURE__*/React.createElement("div", {
+      className: "note-block",
+      style: {
+        padding: 14,
+        marginBottom: 18
+      }
+    }, addingTopic ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
       className: "field-label",
       style: {
-        color: "#C9C2FF",
-        margin: "0 0 6px"
+        marginTop: 0
       }
-    }, "Overall Progress \u2014 ", overallPct, "%"), /*#__PURE__*/React.createElement("div", {
-      className: "progress-track",
+    }, isStories ? "Story title" : "Topic title"), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      className: "text-input",
+      value: newTopicTitle,
+      onChange: e => setNewTopicTitle(e.target.value),
+      placeholder: isStories ? "e.g. The Turtle and the Monkey" : "e.g. The Water Cycle",
+      autoFocus: true
+    }), /*#__PURE__*/React.createElement("label", {
+      className: "field-label"
+    }, isStories ? "Short blurb (optional)" : "Subtitle (optional)"), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      className: "text-input",
+      value: newTopicSub,
+      onChange: e => setNewTopicSub(e.target.value),
+      placeholder: isStories ? "e.g. A Filipino folktale about patience" : "e.g. Evaporation, Condensation, Precipitation"
+    }), !isStories && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
+      className: "field-label"
+    }, "Add inside"), /*#__PURE__*/React.createElement("select", {
+      className: "text-input",
+      value: newTopicChapter,
+      onChange: e => setNewTopicChapter(e.target.value)
+    }, /*#__PURE__*/React.createElement("option", {
+      value: ""
+    }, "\u2728 My Topics (new section)"), quarter.chapters.map(ch => /*#__PURE__*/React.createElement("option", {
+      key: ch.id,
+      value: ch.id
+    }, ch.title)))), /*#__PURE__*/React.createElement("div", {
+      className: "learn-footer",
       style: {
-        background: "rgba(237,231,214,0.14)",
-        boxShadow: "inset 0 1px 3px rgba(0,0,0,0.3), 0 0 10px rgba(53,242,224,0.25)"
+        gap: 10
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-ghost",
+      onClick: () => {
+        setAddingTopic(false);
+        setNewTopicTitle("");
+        setNewTopicSub("");
+        setNewTopicChapter("");
+      }
+    }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-primary",
+      style: {
+        background: quarter.color
+      },
+      disabled: !newTopicTitle.trim(),
+      onClick: submitNewTopic
+    }, "+ ", isStories ? "Create Story" : "Create Topic", " \u2192"))) : /*#__PURE__*/React.createElement("button", {
+      className: "btn",
+      style: {
+        background: quarter.color,
+        color: "#fff",
+        width: "100%"
+      },
+      onClick: () => setAddingTopic(true)
+    }, "+ Add New ", isStories ? "Story" : "Topic", " to ", quarter.title)), !isStories && /*#__PURE__*/React.createElement("div", {
+      className: "longquiz-card",
+      style: {
+        flexDirection: "column",
+        alignItems: "stretch"
       }
     }, /*#__PURE__*/React.createElement("div", {
-      className: "progress-fill",
       style: {
-        width: overallPct + "%",
-        background: "linear-gradient(90deg, var(--aw-cyan), var(--aw-magenta))",
-        boxShadow: "0 0 10px rgba(53,242,224,0.6)"
+        display: "flex",
+        alignItems: "center",
+        gap: 14
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "lqicon"
+    }, "\uD83C\uDFC6"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }, /*#__PURE__*/React.createElement("h3", null, quarter.title, " \u2014 Long Quiz"), /*#__PURE__*/React.createElement("p", null, "All topics in this quarter, combined into one test. ", totalBankQ, " question", totalBankQ === 1 ? "" : "s", " available.", progress.longQuiz[quarter.id] ? " Best: " + progress.longQuiz[quarter.id].best.correct + "/" + progress.longQuiz[quarter.id].best.total : "")), !showSetup && (totalBankQ > 0 ? /*#__PURE__*/React.createElement("button", {
+      className: "btn",
+      style: {
+        background: quarter.color,
+        color: "#fff"
+      },
+      onClick: () => setShowSetup(true)
+    }, "Start") : /*#__PURE__*/React.createElement("span", {
+      className: "pill todo"
+    }, "No questions yet"))), showSetup && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 14
+      }
+    }, longAvailTopics.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
+      className: "field-label"
+    }, "Which topic(s)?"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        maxWidth: 320,
+        marginBottom: 14
+      }
+    }, /*#__PURE__*/React.createElement(TopicPicker, {
+      topics: longAvailTopicsWithCounts,
+      totalCount: totalBankQ,
+      selected: longTopics,
+      onToggle: t => toggleTopicSelection(longTopics, t, setLongTopics)
+    }))), /*#__PURE__*/React.createElement("label", {
+      className: "field-label"
+    }, "Question type?"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: 14
+      }
+    }, /*#__PURE__*/React.createElement(QuizTypePicker, {
+      pool: longTopicPool,
+      selected: longType,
+      onSelect: setLongType
+    })), longFilteredCount === 0 ? /*#__PURE__*/React.createElement("p", {
+      className: "sub"
+    }, "No questions of this type for this topic yet.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
+      className: "field-label"
+    }, "How many questions would you like to take? (1\u2013", longFilteredCount, ")"), /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      className: "text-input",
+      min: 1,
+      max: longFilteredCount,
+      value: longCount,
+      onChange: e => {
+        const raw = e.target.value;
+        if (raw === "") {
+          setLongCount("");
+          return;
+        }
+        const v = parseInt(raw, 10);
+        if (Number.isNaN(v)) return;
+        setLongCount(Math.max(1, Math.min(v, longFilteredCount)));
+      },
+      onBlur: () => {
+        if (longCount === "" || Number.isNaN(longCount)) setLongCount(1);
       }
     })), /*#__PURE__*/React.createElement("div", {
-      className: "smeta",
+      className: "learn-footer",
       style: {
-        color: "#C9C2FF",
-        marginTop: 8
+        gap: 10
       }
-    }, totals.learned, "/", totals.total, " topics learned across all subjects")), /*#__PURE__*/React.createElement("div", {
-      className: "section-title"
-    }, "Subjects"), /*#__PURE__*/React.createElement("div", {
-      className: "subject-square-grid"
-    }, SUBJECTS.filter(s => s.special !== "game" || settings.darkMode).map((s, si) => {
-      if (s.special === "reference") {
-        const total = GENERAL_CATEGORIES.reduce((n, c) => n + c.words.length, 0);
-        const known = Object.keys(generalKnown).filter(k => generalKnown[k]).length;
-        return /*#__PURE__*/React.createElement("button", {
-          key: s.id,
-          className: "subject-square" + (known >= total && total > 0 ? " complete" : ""),
-          onClick: () => goGeneral(s.id),
-          style: {
-            animationDelay: si * 0.05 + "s"
-          }
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "sq-icon"
-        }, /*#__PURE__*/React.createElement(SubjectIcon, {
-          icon: s.icon
-        })), /*#__PURE__*/React.createElement("div", {
-          className: "sq-label"
-        }, s.shortName), /*#__PURE__*/React.createElement("div", {
-          className: "sq-frac",
-          style: {
-            color: s.color
-          }
-        }, known, "/", total));
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-ghost",
+      onClick: () => setShowSetup(false)
+    }, "Cancel"), longFilteredCount > 0 && /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-primary",
+      style: {
+        background: quarter.color
+      },
+      onClick: () => startLongQuiz(quarter, longCount, longTopics, longType)
+    }, "Start Long Quiz \u2192")))), genLesson && /*#__PURE__*/React.createElement("div", {
+      className: "gen-setup-overlay",
+      onClick: () => setGenLesson(null)
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "gen-setup-card",
+      onClick: e => e.stopPropagation()
+    }, /*#__PURE__*/React.createElement("h3", {
+      style: {
+        margin: "0 0 4px"
       }
-      if (s.special === "game") {
-        return /*#__PURE__*/React.createElement("button", {
-          key: s.id,
-          className: "subject-square",
-          onClick: goTyping,
-          style: {
-            animationDelay: si * 0.05 + "s",
-            background: "linear-gradient(135deg, #171233, #0A0A1C)",
-            boxShadow: "0 0 0 1px rgba(53,242,224,0.3)"
-          }
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "sq-icon"
-        }, /*#__PURE__*/React.createElement(SubjectIcon, {
-          icon: s.icon
-        })), /*#__PURE__*/React.createElement("div", {
-          className: "sq-label",
-          style: {
-            color: "#EAF1FF"
-          }
-        }, s.shortName), /*#__PURE__*/React.createElement("div", {
-          className: "sq-frac",
-          style: {
-            color: "#35F2E0"
-          }
-        }, "PLAY"));
+    }, "\u2728 Generate Questions"), /*#__PURE__*/React.createElement("p", {
+      className: "sub",
+      style: {
+        margin: "0 0 14px"
       }
-      const learned = subjectLearnedCount(s, progress);
-      const total = subjectLessonCount(s);
-      return /*#__PURE__*/React.createElement("button", {
-        key: s.id,
-        className: "subject-square" + (learned === total && total > 0 ? " complete" : ""),
-        onClick: () => goSubjectHome(s.id),
-        style: {
-          animationDelay: si * 0.05 + "s"
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "sq-icon"
-      }, /*#__PURE__*/React.createElement(SubjectIcon, {
-        icon: s.icon
-      })), /*#__PURE__*/React.createElement("div", {
-        className: "sq-label"
-      }, s.shortName), /*#__PURE__*/React.createElement("div", {
-        className: "sq-frac",
-        style: {
-          color: s.color
-        }
-      }, learned, "/", total));
-    })), /*#__PURE__*/React.createElement("div", {
-      className: "footer-note"
-    }, "SACRED", " ", /*#__PURE__*/React.createElement("span", {
-      className: "footer-heart-trigger",
-      title: "Sacred Heart Academy of Pasig",
-      onClick: () => {
-        const entered = window.prompt("💀😈 Enter the SECRET CODE, if you dare... 😈💀");
-        if (entered === null) return;
-        if (entered === "C678") {
-          updateSettings({
-            darkMode: !settings.darkMode
-          });
-        } else {
-          window.alert("👻 Nope! That's not the secret code, try again... 👻");
-        }
+    }, "For \"", mergeLesson(genLesson, edits).title, "\""), /*#__PURE__*/React.createElement("label", {
+      className: "field-label"
+    }, "How many questions?"), /*#__PURE__*/React.createElement("select", {
+      className: "text-input",
+      value: genCount,
+      onChange: e => setGenCount(parseInt(e.target.value, 10))
+    }, (() => {
+      const range = getGenerateCountRange(genTypes);
+      return getGenerateCountOptions(genTypes).map(v => /*#__PURE__*/React.createElement("option", {
+        key: v,
+        value: v
+      }, v, v === range.min ? " (recommended)" : ""));
+    })()), /*#__PURE__*/React.createElement("label", {
+      className: "field-label"
+    }, "Question type(s)"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 8,
+        marginBottom: 6
       }
-    }, "HEART"), " ", "ACADEMY OF PASIG \xB7 GRADE SCHOOL DEPARTMENT"));
+    }, GENERATE_TYPE_ORDER.map(t => /*#__PURE__*/React.createElement("span", {
+      key: t,
+      className: "pill " + (genTypes.has(t) ? "done" : "todo"),
+      style: {
+        cursor: "pointer"
+      },
+      onClick: () => toggleGenType(t)
+    }, genTypes.has(t) ? "✓ " : "", GENERATE_TYPE_LABELS[t]))), /*#__PURE__*/React.createElement("label", {
+      className: "field-label"
+    }, "Topic / subtopic (optional)"), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      className: "text-input",
+      placeholder: "Defaults to the whole lesson: \"" + mergeLesson(genLesson, edits).title + "\"",
+      value: genTopic,
+      onChange: e => setGenTopic(e.target.value)
+    }), /*#__PURE__*/React.createElement("label", {
+      className: "field-label"
+    }, "Topic (optional)"), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      className: "text-input",
+      placeholder: "e.g. \"Multiplication\" — just a label, won't change the questions",
+      value: genTopicTag,
+      onChange: e => setGenTopicTag(e.target.value)
+    }), /*#__PURE__*/React.createElement("p", {
+      className: "sub",
+      style: {
+        margin: "4px 0 0"
+      }
+    }, "This has nothing to do with what Gemini writes \u2014 it just tags every generated question with this topic so you can easily find it later when starting a quiz."), /*#__PURE__*/React.createElement("label", {
+      className: "field-label"
+    }, "Difficulty"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 8,
+        marginBottom: 6
+      }
+    }, [["easy", "🌱 Easy"], ["medium", "⭐ Medium"], ["hard", "🔥 Hard"]].map(([key, label]) => /*#__PURE__*/React.createElement("span", {
+      key: key,
+      className: "pill " + (genDifficulty === key ? "done" : "todo"),
+      style: {
+        cursor: "pointer"
+      },
+      onClick: () => setGenDifficulty(key)
+    }, label))), /*#__PURE__*/React.createElement("div", {
+      className: "learn-footer",
+      style: {
+        gap: 10
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-ghost",
+      onClick: () => setGenLesson(null)
+    }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-primary",
+      style: {
+        background: quarter.color
+      },
+      onClick: runGenerateQuestions
+    }, "\u2728 Generate \u2192")))));
   }
 
-  /* ---------------- NOTES SCREEN ---------------- */
-  function NotesScreen() {
+function LessonScreen({
+  currentSubject,
+  customLessons,
+  edits,
+  getQuestions,
+  goQuarter,
+  handleQuizFinish,
+  markLearned,
+  moveLesson,
+  nav,
+  progress,
+  quizSession,
+  removeCustomTopic,
+  saveLessonEdit,
+  setLessonQuestions,
+  setNav,
+  setQuizSession,
+  startLessonQuiz
+}) {
+    const subject = currentSubject();
+    const quarter = subject.quarters.find(q => q.id === nav.quarterId);
+    const rawLesson = allSubjectLessons(subject, customLessons).find(l => l.id === nav.lessonId);
+    const lesson = mergeLesson(rawLesson, edits);
+    const tab = nav.tab || "learn";
+    function setTab(t) {
+      setNav(prev => ({
+        ...prev,
+        tab: t
+      }));
+    }
+    const [editingLesson, setEditingLesson] = useState(!!nav.startEdit);
+    const [movingLesson, setMovingLesson] = useState(false);
+    const [moveTarget, setMoveTarget] = useState("");
+    const [quizCount, setQuizCount] = useState(1);
+    const [quizTopics, setQuizTopics] = useState([TOPIC_ALL]);
+    const [quizType, setQuizType] = useState(TYPE_ALL);
+    const rec = progress.lessons[lesson.id];
+    const qBank = getQuestions(lesson.id);
+    const otherQuarters = subject.quarters.filter(q => q.id !== quarter.id);
+    const availTopics = bankTopics(qBank);
+    const availTopicsWithCounts = availTopics.map(t => ({
+      name: t,
+      count: qBank.filter(q => normTopic(q.topic) === t).length
+    }));
+    const topicFilteredBank = filterByTopics(qBank, quizTopics);
+    const filteredBank = filterByType(topicFilteredBank, quizType);
+    useEffect(() => {
+      setQuizCount(Math.min(10, filteredBank.length) || 1);
+    }, [lesson.id, filteredBank.length]);
+    useEffect(() => {
+      setQuizType(TYPE_ALL);
+    }, [quizTopics, lesson.id]);
+    const activeLessonQuiz = tab === "quiz" && quizSession && quizSession.kind === "lesson" && quizSession.key === lesson.id && !quizSession.finalAnswers;
+    const isStories = subject.special === "stories";
+    if (isStories) {
+      return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+        className: "backbar"
+      }, /*#__PURE__*/React.createElement("button", {
+        className: "backbtn",
+        onClick: () => goQuarter(subject.id, quarter.id)
+      }, "\u2190"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+        className: "qnum",
+        style: {
+          color: quarter.color,
+          fontSize: "9.6px"
+        }
+      }, subject.shortName, " \xB7 ", quarter.title), /*#__PURE__*/React.createElement("h1", {
+        style: {
+          margin: 0,
+          fontSize: "12px"
+        }
+      }, lesson.title))), /*#__PURE__*/React.createElement("div", {
+        key: "story",
+        className: "tab-fade"
+      }, editingLesson ? /*#__PURE__*/React.createElement(LessonEditForm, {
+        lesson: lesson,
+        accent: quarter.color,
+        defaultNoteType: "story",
+        storyMode: true,
+        onSave: data => {
+          saveLessonEdit(lesson.id, data);
+          setEditingLesson(false);
+        },
+        onCancel: () => setEditingLesson(false)
+      }) : movingLesson ? /*#__PURE__*/React.createElement("div", {
+        className: "journal-page"
+      }, /*#__PURE__*/React.createElement("h3", {
+        style: {
+          marginTop: 0
+        }
+      }, "Move \"", lesson.title, "\" to another shelf"), /*#__PURE__*/React.createElement("p", {
+        className: "sub"
+      }, "Currently on: ", quarter.title), /*#__PURE__*/React.createElement("label", {
+        className: "field-label"
+      }, "Move to"), /*#__PURE__*/React.createElement("select", {
+        className: "text-input",
+        value: moveTarget,
+        onChange: e => setMoveTarget(e.target.value)
+      }, /*#__PURE__*/React.createElement("option", {
+        value: ""
+      }, "Choose a shelf\u2026"), otherQuarters.map(q => /*#__PURE__*/React.createElement("option", {
+        key: q.id,
+        value: q.id
+      }, q.icon, " ", q.title))), /*#__PURE__*/React.createElement("div", {
+        className: "learn-footer",
+        style: {
+          gap: 10
+        }
+      }, /*#__PURE__*/React.createElement("button", {
+        className: "btn btn-ghost",
+        onClick: () => {
+          setMovingLesson(false);
+          setMoveTarget("");
+        }
+      }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+        className: "btn btn-primary",
+        style: {
+          background: quarter.color
+        },
+        disabled: !moveTarget,
+        onClick: () => {
+          moveLesson(lesson.id, moveTarget);
+          setMovingLesson(false);
+          goQuarter(subject.id, moveTarget);
+        }
+      }, "\u2194 Move Story"))) : /*#__PURE__*/React.createElement("div", {
+        className: "journal-page learn-page"
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 10,
+          flexWrap: "wrap"
+        }
+      }, /*#__PURE__*/React.createElement("h3", {
+        style: {
+          marginTop: 0
+        }
+      }, lesson.title, lesson.sub ? " — " + lesson.sub : ""), /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: "flex",
+          gap: 8,
+          flexWrap: "wrap"
+        }
+      }, /*#__PURE__*/React.createElement("button", {
+        className: "btn btn-ghost btn-sm",
+        onClick: () => setEditingLesson(true)
+      }, "\u270F\uFE0F Edit Story"), /*#__PURE__*/React.createElement("button", {
+        className: "btn btn-ghost btn-sm",
+        onClick: () => setMovingLesson(true)
+      }, "\u2194 Move Shelf"), rawLesson.isCustom && /*#__PURE__*/React.createElement("button", {
+        className: "btn btn-ghost btn-sm",
+        onClick: () => {
+          if (window.confirm('Delete the story "' + lesson.title + '"?')) {
+            removeCustomTopic(lesson.id);
+            goQuarter(subject.id, quarter.id);
+          }
+        }
+      }, "\uD83D\uDDD1 Delete Story"))), rawLesson.homeQuarterId !== quarter.id && /*#__PURE__*/React.createElement("p", {
+        className: "sub"
+      }, "\uD83D\uDCE6 Originally on ", subject.quarters.find(q => q.id === rawLesson.homeQuarterId).title, ", moved to ", quarter.title, "."), (() => {
+        const notes = getLessonNotes(lesson);
+        if (!notes.length) {
+          return /*#__PURE__*/React.createElement("p", {
+            className: "sub"
+          }, "This story doesn't have any text yet \u2014 tap \"\u270F\uFE0F Edit Story\" to paste or write it in.");
+        }
+        return /*#__PURE__*/React.createElement("div", {
+          className: "learn-notes-col"
+        }, notes.map((note, i) => note.type === "story" ? /*#__PURE__*/React.createElement(StoryCard, {
+          key: note.id || i,
+          note: note,
+          index: i + 1
+        }) : /*#__PURE__*/React.createElement("div", {
+          className: "note-view",
+          key: note.id || i,
+          dangerouslySetInnerHTML: {
+            __html: note.html
+          }
+        })));
+      })(), /*#__PURE__*/React.createElement("div", {
+        className: "learn-footer",
+        style: {
+          gap: 8,
+          flexWrap: "wrap"
+        }
+      }, /*#__PURE__*/React.createElement("button", {
+        className: "btn btn-primary",
+        style: {
+          background: quarter.color
+        },
+        onClick: () => markLearned(lesson.id)
+      }, rec && rec.learned ? "✅ Marked as Read" : "Mark as Read")))));
+    }
+    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: "backbar"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "backbtn",
+      onClick: () => goQuarter(subject.id, quarter.id)
+    }, "\u2190"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      className: "qnum",
+      style: {
+        color: quarter.color,
+        fontSize: "9.6px"
+      }
+    }, rawLesson.chapterTitle), /*#__PURE__*/React.createElement("h1", {
+      style: {
+        margin: 0,
+        fontSize: "12px"
+      }
+    }, lesson.title))), /*#__PURE__*/React.createElement("div", {
+      className: "tabbar"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "tab" + (tab === "learn" ? " active" : ""),
+      onClick: () => {
+        setTab("learn");
+        setEditingLesson(false);
+      }
+    }, "\uD83D\uDCD6 Learn"), /*#__PURE__*/React.createElement("button", {
+      className: "tab" + (tab === "quiz" ? " active" : ""),
+      onClick: () => setTab("quiz")
+    }, "\uD83D\uDCDD Quiz", rec && rec.best ? " (" + rec.best.correct + "/" + rec.best.total + ")" : ""), activeLessonQuiz && /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-ghost btn-sm",
+      title: "Stop this quiz",
+      onClick: () => {
+        if (window.confirm("Stop this quiz? Your progress on this attempt won't be saved.")) {
+          Sound.back();
+          setQuizSession(null);
+        }
+      }
+    }, "\u2715 Stop Quiz"), /*#__PURE__*/React.createElement("button", {
+      className: "tab" + (tab === "manage" ? " active" : ""),
+      onClick: () => setTab("manage")
+    }, "\uD83D\uDDC2\uFE0F Questions", qBank.length ? " (" + qBank.length + ")" : "")), /*#__PURE__*/React.createElement("div", {
+      key: tab,
+      className: "tab-fade"
+    }, tab === "learn" && (editingLesson ? /*#__PURE__*/React.createElement(LessonEditForm, {
+      lesson: lesson,
+      accent: quarter.color,
+      onSave: data => {
+        saveLessonEdit(lesson.id, data);
+        setEditingLesson(false);
+      },
+      onCancel: () => setEditingLesson(false)
+    }) : movingLesson ? /*#__PURE__*/React.createElement("div", {
+      className: "journal-page"
+    }, /*#__PURE__*/React.createElement("h3", {
+      style: {
+        marginTop: 0
+      }
+    }, "Move \"", lesson.title, "\" to another quarter"), /*#__PURE__*/React.createElement("p", {
+      className: "sub"
+    }, "Currently in: ", quarter.num, " \u2014 ", quarter.title), /*#__PURE__*/React.createElement("label", {
+      className: "field-label"
+    }, "Move to"), /*#__PURE__*/React.createElement("select", {
+      className: "text-input",
+      value: moveTarget,
+      onChange: e => setMoveTarget(e.target.value)
+    }, /*#__PURE__*/React.createElement("option", {
+      value: ""
+    }, "Choose a quarter\u2026"), otherQuarters.map(q => /*#__PURE__*/React.createElement("option", {
+      key: q.id,
+      value: q.id
+    }, q.num, " \u2014 ", q.title))), /*#__PURE__*/React.createElement("div", {
+      className: "learn-footer",
+      style: {
+        gap: 10
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-ghost",
+      onClick: () => {
+        setMovingLesson(false);
+        setMoveTarget("");
+      }
+    }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-primary",
+      style: {
+        background: quarter.color
+      },
+      disabled: !moveTarget,
+      onClick: () => {
+        moveLesson(lesson.id, moveTarget);
+        setMovingLesson(false);
+        goQuarter(subject.id, moveTarget);
+      }
+    }, "\u2194 Move Topic"))) : /*#__PURE__*/React.createElement("div", {
+      className: "journal-page learn-page"
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        gap: 10,
+        flexWrap: "wrap"
+      }
+    }, /*#__PURE__*/React.createElement("h3", {
+      style: {
+        marginTop: 0
+      }
+    }, lesson.title, lesson.sub ? " — " + lesson.sub : ""), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 8,
+        flexWrap: "wrap"
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-ghost btn-sm",
+      onClick: () => setEditingLesson(true)
+    }, "\u270F\uFE0F Edit Topic"), /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-ghost btn-sm",
+      onClick: () => setMovingLesson(true)
+    }, "\u2194 Move Quarter"), rawLesson.isCustom && /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-ghost btn-sm",
+      onClick: () => {
+        if (window.confirm('Delete the topic "' + lesson.title + '"? This removes its notes and question bank too.')) {
+          removeCustomTopic(lesson.id);
+          goQuarter(subject.id, quarter.id);
+        }
+      }
+    }, "\uD83D\uDDD1 Delete Topic"))), rawLesson.homeQuarterId !== quarter.id && /*#__PURE__*/React.createElement("p", {
+      className: "sub"
+    }, "\uD83D\uDCE6 Originally in ", subject.quarters.find(q => q.id === rawLesson.homeQuarterId).num, ", moved to ", quarter.num, "."), (() => {
+      // On desktop, video(s) and notes sit side by side (video sticky) instead of
+      // stacking full-width one after another — keeps the Learn tab from turning
+      // into one very long scroll on a wide screen, while mobile keeps the simple
+      // stacked order.
+      const videoIds = getLessonVideos(lesson).map(youtubeEmbedId).filter(Boolean);
+      const notes = getLessonNotes(lesson);
+      const multiple = notes.length > 1;
+      const videoBlock = videoIds.length > 0 ? /*#__PURE__*/React.createElement("div", {
+        className: "learn-video-col"
+      }, videoIds.map((vid, i) => /*#__PURE__*/React.createElement("div", {
+        className: "video-embed",
+        key: i
+      }, /*#__PURE__*/React.createElement("iframe", {
+        src: "https://www.youtube.com/embed/" + vid,
+        title: lesson.title + " video " + (i + 1),
+        allow: "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture",
+        allowFullScreen: true
+      })))) : null;
+      const notesBlock = /*#__PURE__*/React.createElement("div", {
+        className: "learn-notes-col"
+      }, notes.map((note, i) => note.type === "story" ? /*#__PURE__*/React.createElement(StoryCard, {
+        key: note.id || i,
+        note: note,
+        index: i + 1
+      }) : multiple ? /*#__PURE__*/React.createElement("div", {
+        className: "note-card",
+        key: note.id || i
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "note-card-head"
+      }, "\uD83D\uDCDD ", note.name && note.name.trim() ? note.name.trim() : "Note " + (i + 1)), /*#__PURE__*/React.createElement("div", {
+        className: "note-view",
+        dangerouslySetInnerHTML: {
+          __html: note.html
+        }
+      })) : /*#__PURE__*/React.createElement("div", {
+        className: "note-view",
+        key: note.id || i,
+        dangerouslySetInnerHTML: {
+          __html: note.html
+        }
+      })));
+      return videoBlock ? /*#__PURE__*/React.createElement("div", {
+        className: "learn-layout"
+      }, videoBlock, notesBlock) : notesBlock;
+    })(), /*#__PURE__*/React.createElement("div", {
+      className: "learn-footer"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-primary",
+      style: {
+        background: quarter.color
+      },
+      onClick: () => {
+        markLearned(lesson.id);
+        setTab("quiz");
+      }
+    }, rec && rec.learned ? "Reviewed — Take Quiz →" : "Mark as Learned & Take Quiz →")))), tab === "quiz" && (quizSession && quizSession.kind === "lesson" && quizSession.key === lesson.id ? quizSession.finalAnswers ? /*#__PURE__*/React.createElement(ResultsView, {
+      answers: quizSession.finalAnswers,
+      accent: quarter.color,
+      title: lesson.title,
+      onRetry: () => startLessonQuiz(quarter, lesson, quizCount, quizTopics, quizType),
+      onDone: () => {
+        setQuizSession(null);
+      }
+    }) : /*#__PURE__*/React.createElement(QuizRunner, {
+      questions: quizSession.questions,
+      accent: quarter.color,
+      onFinish: handleQuizFinish,
+      onStop: () => {
+        setQuizSession(null);
+      },
+      showStopInline: false
+    }) : /*#__PURE__*/React.createElement("div", {
+      className: "quiz-card",
+      style: {
+        textAlign: "center"
+      }
+    }, qBank.length === 0 ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
+      style: {
+        marginTop: 0
+      }
+    }, "No questions yet for ", /*#__PURE__*/React.createElement("strong", null, lesson.title), "."), /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-primary",
+      style: {
+        background: quarter.color
+      },
+      onClick: () => setTab("manage")
+    }, "\u2795 Add Questions")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
+      style: {
+        marginTop: 0
+      }
+    }, "Ready to test what you learned about ", /*#__PURE__*/React.createElement("strong", null, lesson.title), "?"), availTopics.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
+      className: "field-label"
+    }, "Which topic(s)?"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        maxWidth: 320,
+        margin: "0 auto 14px"
+      }
+    }, /*#__PURE__*/React.createElement(TopicPicker, {
+      topics: availTopicsWithCounts,
+      totalCount: qBank.length,
+      selected: quizTopics,
+      onToggle: t => toggleTopicSelection(quizTopics, t, setQuizTopics)
+    }))), /*#__PURE__*/React.createElement("label", {
+      className: "field-label"
+    }, "Question type?"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        maxWidth: 320,
+        margin: "0 auto 14px"
+      }
+    }, /*#__PURE__*/React.createElement(QuizTypePicker, {
+      pool: topicFilteredBank,
+      selected: quizType,
+      onSelect: setQuizType
+    })), filteredBank.length === 0 ? /*#__PURE__*/React.createElement("p", {
+      className: "sub"
+    }, "No questions of this type for this topic yet.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
+      className: "field-label"
+    }, "How many questions would you like to take? (1\u2013", filteredBank.length, ")"), /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      className: "text-input",
+      style: {
+        maxWidth: 120,
+        margin: "0 auto 14px"
+      },
+      min: 1,
+      max: filteredBank.length,
+      value: quizCount,
+      onChange: e => {
+        const raw = e.target.value;
+        if (raw === "") {
+          setQuizCount("");
+          return;
+        }
+        const v = parseInt(raw, 10);
+        if (Number.isNaN(v)) return;
+        setQuizCount(Math.max(1, Math.min(v, filteredBank.length)));
+      },
+      onBlur: () => {
+        if (quizCount === "" || Number.isNaN(quizCount)) setQuizCount(1);
+      }
+    }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-primary",
+      style: {
+        background: quarter.color
+      },
+      onClick: () => startLessonQuiz(quarter, lesson, quizCount, quizTopics, quizType)
+    }, rec && rec.best ? "Retake Quiz" : "Start Quiz")))))), tab === "manage" && /*#__PURE__*/React.createElement(QuestionBankManager, {
+      lessonId: lesson.id,
+      questions: qBank,
+      accent: quarter.color,
+      onChange: next => setLessonQuestions(lesson.id, next)
+    })));
+  }
+
+function SubjectHomeScreen({
+  currentSubject,
+  customLessons,
+  goDashboard,
+  goQuarter,
+  moves,
+  progress
+}) {
+    const subject = currentSubject();
+    const quarters = subject.quarters;
+    const isStories = subject.special === "stories";
+    function renderShelfCard(q, qi) {
+      const learned = quarterLearnedCount(subject, q, moves, progress, customLessons);
+      const totalL = quarterLessonCount(subject, q, moves, customLessons);
+      const lq = progress.longQuiz[q.id];
+      const pct = totalL ? Math.round(learned / totalL * 100) : 0;
+      return /*#__PURE__*/React.createElement("button", {
+        key: q.id,
+        className: "qcard",
+        onClick: () => goQuarter(subject.id, q.id),
+        style: {
+          textAlign: "left",
+          animationDelay: qi * 0.05 + "s"
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "qicon"
+      }, q.icon), /*#__PURE__*/React.createElement("div", {
+        className: "qnum"
+      }, q.num), /*#__PURE__*/React.createElement("h2", null, q.title), /*#__PURE__*/React.createElement("div", {
+        className: "theme"
+      }, totalL, " ", isStories ? "stories" : "topics", " to explore"), /*#__PURE__*/React.createElement("div", {
+        className: "progress-track"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "progress-fill",
+        style: {
+          width: pct + "%",
+          background: q.color
+        }
+      })), /*#__PURE__*/React.createElement("div", {
+        className: "meta"
+      }, learned, "/", totalL, " ", isStories ? "stories read" : "topics learned", lq ? " · Long Quiz best " + lq.best.correct + "/" + lq.best.total : ""));
+    }
+    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: "backbar"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "backbtn",
+      onClick: goDashboard
+    }, "\u2190"), /*#__PURE__*/React.createElement("div", {
+      className: "icon-badge-sm",
+      style: {
+        background: subject.soft
+      }
+    }, /*#__PURE__*/React.createElement(SubjectIcon, {
+      icon: subject.icon
+    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      className: "qnum"
+    }, subject.name), /*#__PURE__*/React.createElement("h1", {
+      style: {
+        margin: 0,
+        fontSize: "21px"
+      }
+    }, subject.tagline))), isStories ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: "section-title"
+    }, "\uD83C\uDDEC\uD83C\uDDE7 English Stories"), /*#__PURE__*/React.createElement("div", {
+      className: "quarter-grid"
+    }, quarters.filter(q => q.lang === "en").map((q, qi) => renderShelfCard(q, qi))), /*#__PURE__*/React.createElement("div", {
+      className: "section-title"
+    }, "\uD83C\uDDF5\uD83C\uDDED Filipino Stories"), /*#__PURE__*/React.createElement("div", {
+      className: "quarter-grid"
+    }, quarters.filter(q => q.lang === "fil").map((q, qi) => renderShelfCard(q, qi)))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: "section-title"
+    }, "Choose a Quarter"), /*#__PURE__*/React.createElement("div", {
+      className: "quarter-grid"
+    }, quarters.map((q, qi) => renderShelfCard(q, qi)))), /*#__PURE__*/React.createElement("div", {
+      className: "footer-note"
+    }, "SACRED HEART ACADEMY OF PASIG \xB7 GRADE SCHOOL DEPARTMENT"));
+  }
+
+function GeneralScreen({
+  currentSubject,
+  generalKnown,
+  goDashboard,
+  toggleGeneralWord
+}) {
+    const subject = currentSubject();
+    const [query, setQuery] = useState("");
+    const [openCats, setOpenCats] = useState(() => ({
+      [GENERAL_CATEGORIES[0].id]: true
+    }));
+    const q = query.trim().toLowerCase();
+    const totalWords = GENERAL_CATEGORIES.reduce((n, c) => n + c.words.length, 0);
+    const knownCount = Object.keys(generalKnown).filter(k => generalKnown[k]).length;
+    const overallPct = totalWords ? Math.round(knownCount / totalWords * 100) : 0;
+    function toggleCat(id) {
+      Sound.nav();
+      setOpenCats(prev => ({
+        ...prev,
+        [id]: !prev[id]
+      }));
+    }
+    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: "backbar"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "backbtn",
+      onClick: goDashboard
+    }, "\u2190"), /*#__PURE__*/React.createElement("div", {
+      className: "icon-badge-sm",
+      style: {
+        background: subject.soft
+      }
+    }, /*#__PURE__*/React.createElement(SubjectIcon, {
+      icon: subject.icon
+    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      className: "qnum"
+    }, subject.name), /*#__PURE__*/React.createElement("h1", {
+      style: {
+        margin: 0,
+        fontSize: "21px"
+      }
+    }, subject.tagline))), /*#__PURE__*/React.createElement("div", {
+      className: "ref-hero"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "ref-hero-title"
+    }, "Words a Grade 3 Student Should Already Know"), /*#__PURE__*/React.createElement("div", {
+      className: "ref-hero-sub"
+    }, "This is a plain reference list, not a lesson or quiz \u2014 a checklist of sight words, spelling words, and key vocabulary a Grade 2 finisher should have mastered before moving up. Tap a word once you're confident you know it."), /*#__PURE__*/React.createElement("div", {
+      className: "ref-hero-stats"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "ref-hero-stat"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "n"
+    }, totalWords), /*#__PURE__*/React.createElement("div", {
+      className: "l"
+    }, "Total Words")), /*#__PURE__*/React.createElement("div", {
+      className: "ref-hero-stat"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "n"
+    }, knownCount), /*#__PURE__*/React.createElement("div", {
+      className: "l"
+    }, "Marked Known")), /*#__PURE__*/React.createElement("div", {
+      className: "ref-hero-stat"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "n"
+    }, overallPct, "%"), /*#__PURE__*/React.createElement("div", {
+      className: "l"
+    }, "Ready")))), /*#__PURE__*/React.createElement("input", {
+      className: "ref-search",
+      type: "text",
+      placeholder: "Search a word or category...",
+      value: query,
+      onChange: e => setQuery(e.target.value)
+    }), GENERAL_CATEGORIES.map(cat => {
+      const filteredWords = q ? cat.words.filter(w => w.toLowerCase().includes(q)) : cat.words;
+      const catMatchesTitle = cat.title.toLowerCase().includes(q);
+      if (q && filteredWords.length === 0 && !catMatchesTitle) return null;
+      const wordsToShow = q && catMatchesTitle ? cat.words : filteredWords;
+      const isOpen = !!openCats[cat.id] || !!q;
+      const catKnown = cat.words.filter(w => generalKnown[cat.id + "::" + w]).length;
+      const catPct = cat.words.length ? Math.round(catKnown / cat.words.length * 100) : 0;
+      return /*#__PURE__*/React.createElement("div", {
+        key: cat.id,
+        className: "ref-cat" + (isOpen ? " open" : "")
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "ref-cat-head",
+        onClick: () => toggleCat(cat.id)
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "ref-cat-icon"
+      }, cat.icon), /*#__PURE__*/React.createElement("div", {
+        className: "ref-cat-title"
+      }, cat.title), /*#__PURE__*/React.createElement("div", {
+        className: "ref-cat-count"
+      }, catKnown, "/", cat.words.length), /*#__PURE__*/React.createElement("div", {
+        className: "ref-cat-chev"
+      }, "\u25BE")), isOpen && /*#__PURE__*/React.createElement("div", {
+        className: "ref-cat-body"
+      }, /*#__PURE__*/React.createElement("p", {
+        className: "ref-cat-note"
+      }, cat.note), /*#__PURE__*/React.createElement("div", {
+        className: "ref-word-grid"
+      }, wordsToShow.map(w => {
+        const known = !!generalKnown[cat.id + "::" + w];
+        return /*#__PURE__*/React.createElement("button", {
+          key: w,
+          className: "ref-word" + (known ? " known" : ""),
+          onClick: () => toggleGeneralWord(cat.id, w)
+        }, /*#__PURE__*/React.createElement("span", {
+          className: "chk"
+        }, known ? "✓" : "○"), /*#__PURE__*/React.createElement("span", null, w));
+      })), /*#__PURE__*/React.createElement("div", {
+        className: "ref-progress-mini"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "ref-progress-mini-fill",
+        style: {
+          width: catPct + "%"
+        }
+      }))));
+    }), /*#__PURE__*/React.createElement("div", {
+      className: "footer-note"
+    }, "SACRED HEART ACADEMY OF PASIG \xB7 GRADE SCHOOL DEPARTMENT"));
+  }
+
+function NotesScreen({
+  addNote,
+  deleteNote,
+  goDashboard,
+  notes
+}) {
     const [draft, setDraft] = useState("");
     return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       className: "backbar"
@@ -9532,15 +9982,18 @@ function App() {
     }, "SACRED HEART ACADEMY OF PASIG \xB7 GRADE SCHOOL DEPARTMENT"));
   }
 
-  /* ---------------- TYPING GALAXY SCREEN (dark-mode bonus game) ---------------- */
-  function TypingGalaxyScreen() {
-    // The Galaxy Blaster iframe (unsandboxed srcDoc, same origin) writes its
-    // coin balance straight to localStorage under "ta-coins". Read it here so
-    // the balance can be shown above the game, and keep it live via the same
-    // "storage" event trick used for cloud sync (see comment near the top).
+function TypingGalaxyScreen({
+  goDashboard
+}) {
+    // The Galaxy Blaster iframe (unsandboxed srcDoc, same origin) is loaded
+    // with ?grade=2, so it writes its coin balance to localStorage under
+    // "g2-ta-coins" (grade-scoped so it never collides with the Grade 4
+    // app's save on the same origin). Read it here so the balance can be
+    // shown above the game, and keep it live via the same "storage" event
+    // trick used for cloud sync (see comment near the top).
     const [typingCoins, setTypingCoins] = useState(() => {
       try {
-        return parseInt(localStorage.getItem("ta-coins") || "0", 10) || 0;
+        return parseInt(localStorage.getItem("g2-ta-coins") || "0", 10) || 0;
       } catch (e) {
         return 0;
       }
@@ -9548,11 +10001,11 @@ function App() {
     useEffect(() => {
       function refresh() {
         try {
-          setTypingCoins(parseInt(localStorage.getItem("ta-coins") || "0", 10) || 0);
+          setTypingCoins(parseInt(localStorage.getItem("g2-ta-coins") || "0", 10) || 0);
         } catch (e) {}
       }
       function onStorage(e) {
-        if (!e.key || e.key === "ta-coins") refresh();
+        if (!e.key || e.key === "g2-ta-coins") refresh();
       }
       window.addEventListener("storage", onStorage);
       refresh();
@@ -9599,7 +10052,7 @@ function App() {
       }
     }, /*#__PURE__*/React.createElement("iframe", {
       title: "Galaxy Blaster typing game",
-      src: "./galaxy-blaster.html",
+      src: "./galaxy-blaster.html?grade=2",
       style: {
         width: "100%",
         height: "78vh",
@@ -9613,8 +10066,26 @@ function App() {
     }, "SACRED HEART ACADEMY OF PASIG \xB7 GRADE SCHOOL DEPARTMENT"));
   }
 
-  /* ---------------- GRADES SCREEN ---------------- */
-  function GradesScreen() {
+function GradesScreen({
+  addGradeItem,
+  adjustSubjectFinal,
+  clearGradeFinalOverride,
+  goDashboard,
+  gradeConfig,
+  grades,
+  openSubject,
+  removeGradeItem,
+  resetGradeConfig,
+  selectedQuarter,
+  setGradeEntry,
+  setHonorThreshold,
+  setOpenSubject,
+  setSelectedQuarter,
+  setShowGradeSettings,
+  setSubjectWeight,
+  showGradeSettings,
+  updateGradeItem
+}) {
     // openSubject / selectedQuarter / showGradeSettings are declared up in App
     // (see comment there) so they don't reset every time grades change.
     const showSettings = showGradeSettings;
@@ -10336,8 +10807,16 @@ function App() {
     }, "Opens your device's share sheet (Facebook included), or downloads the image if sharing isn't supported here.")))));
   }
 
-  /* ---------------- SUBJECTS SCREEN (top-level home) ---------------- */
-  function SubjectsScreen() {
+function SubjectsScreen({
+  generalKnown,
+  goGeneral,
+  goSubjectHome,
+  goTyping,
+  progress,
+  settings,
+  subjectLearnedCount,
+  subjectLessonCount
+}) {
     return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       className: "passport"
     }, /*#__PURE__*/React.createElement("div", {
@@ -10399,1229 +10878,976 @@ function App() {
     }, "SACRED HEART ACADEMY OF PASIG \xB7 GRADE SCHOOL DEPARTMENT"));
   }
 
-  /* ---------------- GENERAL SCREEN (Grade 3 Readiness Word List — reference, not lessons/quiz) ---------------- */
-  function GeneralScreen() {
-    const subject = currentSubject();
-    const [query, setQuery] = useState("");
-    const [openCats, setOpenCats] = useState(() => ({
-      [GENERAL_CATEGORIES[0].id]: true
-    }));
-    const q = query.trim().toLowerCase();
-    const totalWords = GENERAL_CATEGORIES.reduce((n, c) => n + c.words.length, 0);
-    const knownCount = Object.keys(generalKnown).filter(k => generalKnown[k]).length;
-    const overallPct = totalWords ? Math.round(knownCount / totalWords * 100) : 0;
-    function toggleCat(id) {
-      Sound.nav();
-      setOpenCats(prev => ({
-        ...prev,
-        [id]: !prev[id]
-      }));
-    }
+function DashboardScreen({
+  customLessons,
+  generalKnown,
+  goGeneral,
+  goSubjectHome,
+  goTyping,
+  progress,
+  settings,
+  subjectLearnedCount,
+  subjectLessonCount,
+  updateSettings
+}) {
+    // Memoized: this reduce touches every subject's full lesson list, so it
+    // should only recompute when progress or the lesson set actually changes,
+    // not on every keystroke/toggle elsewhere in the app.
+    const totals = useMemo(() => SUBJECTS.reduce((acc, s) => {
+      acc.learned += subjectLearnedCount(s, progress);
+      acc.total += subjectLessonCount(s);
+      return acc;
+    }, {
+      learned: 0,
+      total: 0
+    }), [progress, customLessons]);
+    const overallPct = totals.total ? Math.round(totals.learned / totals.total * 100) : 0;
     return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "backbar"
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "backbtn",
-      onClick: goDashboard
-    }, "\u2190"), /*#__PURE__*/React.createElement("div", {
-      className: "icon-badge-sm",
-      style: {
-        background: subject.soft
-      }
-    }, /*#__PURE__*/React.createElement(SubjectIcon, {
-      icon: subject.icon
-    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      className: "qnum"
-    }, subject.name), /*#__PURE__*/React.createElement("h1", {
-      style: {
-        margin: 0,
-        fontSize: "21px"
-      }
-    }, subject.tagline))), /*#__PURE__*/React.createElement("div", {
-      className: "ref-hero"
+      className: "passport"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "ref-hero-title"
-    }, "Words a Grade 3 Student Should Already Know"), /*#__PURE__*/React.createElement("div", {
-      className: "ref-hero-sub"
-    }, "This is a plain reference list, not a lesson or quiz \u2014 a checklist of sight words, spelling words, and key vocabulary a Grade 2 finisher should have mastered before moving up. Tap a word once you're confident you know it."), /*#__PURE__*/React.createElement("div", {
-      className: "ref-hero-stats"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "ref-hero-stat"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "n"
-    }, totalWords), /*#__PURE__*/React.createElement("div", {
-      className: "l"
-    }, "Total Words")), /*#__PURE__*/React.createElement("div", {
-      className: "ref-hero-stat"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "n"
-    }, knownCount), /*#__PURE__*/React.createElement("div", {
-      className: "l"
-    }, "Marked Known")), /*#__PURE__*/React.createElement("div", {
-      className: "ref-hero-stat"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "n"
-    }, overallPct, "%"), /*#__PURE__*/React.createElement("div", {
-      className: "l"
-    }, "Ready")))), /*#__PURE__*/React.createElement("input", {
-      className: "ref-search",
-      type: "text",
-      placeholder: "Search a word or category...",
-      value: query,
-      onChange: e => setQuery(e.target.value)
-    }), GENERAL_CATEGORIES.map(cat => {
-      const filteredWords = q ? cat.words.filter(w => w.toLowerCase().includes(q)) : cat.words;
-      const catMatchesTitle = cat.title.toLowerCase().includes(q);
-      if (q && filteredWords.length === 0 && !catMatchesTitle) return null;
-      const wordsToShow = q && catMatchesTitle ? cat.words : filteredWords;
-      const isOpen = !!openCats[cat.id] || !!q;
-      const catKnown = cat.words.filter(w => generalKnown[cat.id + "::" + w]).length;
-      const catPct = cat.words.length ? Math.round(catKnown / cat.words.length * 100) : 0;
-      return /*#__PURE__*/React.createElement("div", {
-        key: cat.id,
-        className: "ref-cat" + (isOpen ? " open" : "")
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "ref-cat-head",
-        onClick: () => toggleCat(cat.id)
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "ref-cat-icon"
-      }, cat.icon), /*#__PURE__*/React.createElement("div", {
-        className: "ref-cat-title"
-      }, cat.title), /*#__PURE__*/React.createElement("div", {
-        className: "ref-cat-count"
-      }, catKnown, "/", cat.words.length), /*#__PURE__*/React.createElement("div", {
-        className: "ref-cat-chev"
-      }, "\u25BE")), isOpen && /*#__PURE__*/React.createElement("div", {
-        className: "ref-cat-body"
-      }, /*#__PURE__*/React.createElement("p", {
-        className: "ref-cat-note"
-      }, cat.note), /*#__PURE__*/React.createElement("div", {
-        className: "ref-word-grid"
-      }, wordsToShow.map(w => {
-        const known = !!generalKnown[cat.id + "::" + w];
-        return /*#__PURE__*/React.createElement("button", {
-          key: w,
-          className: "ref-word" + (known ? " known" : ""),
-          onClick: () => toggleGeneralWord(cat.id, w)
-        }, /*#__PURE__*/React.createElement("span", {
-          className: "chk"
-        }, known ? "✓" : "○"), /*#__PURE__*/React.createElement("span", null, w));
-      })), /*#__PURE__*/React.createElement("div", {
-        className: "ref-progress-mini"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "ref-progress-mini-fill",
-        style: {
-          width: catPct + "%"
-        }
-      }))));
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "footer-note"
-    }, "SACRED HEART ACADEMY OF PASIG \xB7 GRADE SCHOOL DEPARTMENT"));
-  }
-
-  /* ---------------- SUBJECT HOME SCREEN (choose a quarter) ---------------- */
-  function SubjectHomeScreen() {
-    const subject = currentSubject();
-    const quarters = subject.quarters;
-    const isStories = subject.special === "stories";
-    function renderShelfCard(q, qi) {
-      const learned = quarterLearnedCount(subject, q, moves, progress, customLessons);
-      const totalL = quarterLessonCount(subject, q, moves, customLessons);
-      const lq = progress.longQuiz[q.id];
-      const pct = totalL ? Math.round(learned / totalL * 100) : 0;
-      return /*#__PURE__*/React.createElement("button", {
-        key: q.id,
-        className: "qcard",
-        onClick: () => goQuarter(subject.id, q.id),
-        style: {
-          textAlign: "left",
-          animationDelay: qi * 0.05 + "s"
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "qicon"
-      }, q.icon), /*#__PURE__*/React.createElement("div", {
-        className: "qnum"
-      }, q.num), /*#__PURE__*/React.createElement("h2", null, q.title), /*#__PURE__*/React.createElement("div", {
-        className: "theme"
-      }, totalL, " ", isStories ? "stories" : "topics", " to explore"), /*#__PURE__*/React.createElement("div", {
-        className: "progress-track"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "progress-fill",
-        style: {
-          width: pct + "%",
-          background: q.color
-        }
-      })), /*#__PURE__*/React.createElement("div", {
-        className: "meta"
-      }, learned, "/", totalL, " ", isStories ? "stories read" : "topics learned", lq ? " · Long Quiz best " + lq.best.correct + "/" + lq.best.total : ""));
-    }
-    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "backbar"
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "backbtn",
-      onClick: goDashboard
-    }, "\u2190"), /*#__PURE__*/React.createElement("div", {
-      className: "icon-badge-sm",
-      style: {
-        background: subject.soft
-      }
-    }, /*#__PURE__*/React.createElement(SubjectIcon, {
-      icon: subject.icon
-    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      className: "qnum"
-    }, subject.name), /*#__PURE__*/React.createElement("h1", {
-      style: {
-        margin: 0,
-        fontSize: "21px"
-      }
-    }, subject.tagline))), isStories ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "section-title"
-    }, "\uD83C\uDDEC\uD83C\uDDE7 English Stories"), /*#__PURE__*/React.createElement("div", {
-      className: "quarter-grid"
-    }, quarters.filter(q => q.lang === "en").map((q, qi) => renderShelfCard(q, qi))), /*#__PURE__*/React.createElement("div", {
-      className: "section-title"
-    }, "\uD83C\uDDF5\uD83C\uDDED Filipino Stories"), /*#__PURE__*/React.createElement("div", {
-      className: "quarter-grid"
-    }, quarters.filter(q => q.lang === "fil").map((q, qi) => renderShelfCard(q, qi)))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "section-title"
-    }, "Choose a Quarter"), /*#__PURE__*/React.createElement("div", {
-      className: "quarter-grid"
-    }, quarters.map((q, qi) => renderShelfCard(q, qi)))), /*#__PURE__*/React.createElement("div", {
-      className: "footer-note"
-    }, "SACRED HEART ACADEMY OF PASIG \xB7 GRADE SCHOOL DEPARTMENT"));
-  }
-
-  /* ---------------- QUARTER SCREEN ---------------- */
-  function QuarterScreen() {
-    const subject = currentSubject();
-    const quarter = subject.quarters.find(q => q.id === nav.quarterId);
-    const isStories = subject.special === "stories";
-    const [showSetup, setShowSetup] = useState(false);
-    const [generatingIds, setGeneratingIds] = useState({});
-    const [genLesson, setGenLesson] = useState(null); // lesson currently being configured for AI generation
-    const [genCount, setGenCount] = useState(6);
-    const [genTypes, setGenTypes] = useState(new Set(GENERATE_TYPE_ORDER));
-    const [genTopic, setGenTopic] = useState("");
-    const [genTopicTag, setGenTopicTag] = useState("");
-    const [genDifficulty, setGenDifficulty] = useState("medium");
-    const lessons = quarterLessons(subject, quarter, moves, customLessons);
-    const nativeLessons = lessons.filter(l => l.homeQuarterId === quarter.id);
-    const movedInLessons = lessons.filter(l => l.homeQuarterId !== quarter.id);
-    const totalBankQ = lessons.reduce((sum, l) => sum + getQuestions(l.id).length, 0);
-    const [longCount, setLongCount] = useState(Math.min(10, totalBankQ) || 1);
-    const [longTopics, setLongTopics] = useState([TOPIC_ALL]);
-    const [longType, setLongType] = useState(TYPE_ALL);
-    const longFullPool = lessons.flatMap(l => getQuestions(l.id));
-    const longAvailTopics = bankTopics(longFullPool);
-    const longAvailTopicsWithCounts = longAvailTopics.map(t => ({
-      name: t,
-      count: longFullPool.filter(q => normTopic(q.topic) === t).length
-    }));
-    const longTopicPool = filterByTopics(longFullPool, longTopics);
-    const longFilteredCount = filterByType(longTopicPool, longType).length;
-    let counter = 0;
-    useEffect(() => {
-      setLongCount(Math.min(10, longFilteredCount) || 1);
-    }, [longTopics, longType, longFilteredCount]);
-    useEffect(() => {
-      setLongType(TYPE_ALL);
-    }, [longTopics]);
-    const [addingTopic, setAddingTopic] = useState(false);
-    const [newTopicTitle, setNewTopicTitle] = useState("");
-    const [newTopicSub, setNewTopicSub] = useState("");
-    const [newTopicChapter, setNewTopicChapter] = useState("");
-    function submitNewTopic() {
-      if (!newTopicTitle.trim()) return;
-      const id = addCustomTopic(subject.id, quarter.id, newTopicTitle, newTopicSub, newTopicChapter || null);
-      setNewTopicTitle("");
-      setNewTopicSub("");
-      setNewTopicChapter("");
-      setAddingTopic(false);
-      goLesson(subject.id, quarter.id, id, true);
-    }
-    function openGenerateSetup(l, e) {
-      if (e) {
-        e.stopPropagation();
-      }
-      if (generatingIds[l.id]) return;
-      const defaultTypes = new Set(GENERATE_TYPE_ORDER);
-      setGenLesson(l);
-      setGenTypes(defaultTypes);
-      setGenCount(getGenerateCountRange(defaultTypes).min);
-      setGenTopic("");
-      setGenTopicTag("");
-      setGenDifficulty("medium");
-    }
-    function toggleGenType(t) {
-      setGenTypes(prev => {
-        const next = new Set(prev);
-        if (next.has(t)) {
-          if (next.size > 1) next.delete(t);
-        } else {
-          next.add(t);
-        }
-        // Cascade: whenever the type selection changes, snap the count back
-        // to the automatic (lower-end) value for the new selection.
-        setGenCount(getGenerateCountRange(next).min);
-        return next;
-      });
-    }
-    async function runGenerateQuestions() {
-      const l = genLesson;
-      if (!l) return;
-      let apiKey = loadGeminiApiKey();
-      if (!apiKey) {
-        apiKey = window.prompt("Paste a free Gemini API key to generate quiz questions (get one at aistudio.google.com/apikey). It's saved on this device only, and also reused for story narration.");
-        if (!apiKey || !apiKey.trim()) return;
-        apiKey = apiKey.trim();
-        saveGeminiApiKey(apiKey);
-      }
-      setGenLesson(null);
-      setGeneratingIds(prev => ({
-        ...prev,
-        [l.id]: true
-      }));
-      try {
-        const merged = mergeLesson(l, edits);
-        const generated = await generateQuestionsForLesson(apiKey, merged, {
-          count: genCount,
-          types: Array.from(genTypes),
-          topic: genTopic,
-          tag: genTopicTag,
-          difficulty: genDifficulty,
-          existingQuestions: getQuestions(l.id).map(q => q.q)
-        });
-        if (!generated.length) {
-          alert("Gemini didn't return any usable questions for \"" + merged.title + "\". Try again in a moment.");
-        } else {
-          setLessonQuestions(l.id, [...getQuestions(l.id), ...generated]);
-          alert("✨ Added " + generated.length + " new question" + (generated.length === 1 ? "" : "s") + " to \"" + merged.title + "\"'s question bank.");
-        }
-      } catch (err) {
-        alert("Couldn't generate questions: " + (err && err.message ? err.message : "unknown error"));
-      } finally {
-        setGeneratingIds(prev => {
-          const next = {
-            ...prev
-          };
-          delete next[l.id];
-          return next;
-        });
-      }
-    }
-    function renderLessonCard(l0, moved) {
-      counter++;
-      const l = mergeLesson(l0, edits);
-      const rec = progress.lessons[l.id];
-      const learned = rec && rec.learned;
-      const best = rec && rec.best;
-      const qCount = getQuestions(l.id).length;
-      if (isStories) {
-        return /*#__PURE__*/React.createElement("button", {
-          key: l.id,
-          className: "lesson-card",
-          style: {
-            width: "100%",
-            border: "2px solid var(--line)",
-            position: "relative",
-            animationDelay: Math.min(counter * 0.04, 0.4) + "s"
-          },
-          onClick: () => goLesson(subject.id, quarter.id, l.id)
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "lesson-num",
-          style: {
-            background: quarter.color
-          }
-        }, counter), /*#__PURE__*/React.createElement("div", {
-          className: "lesson-body"
-        }, /*#__PURE__*/React.createElement("h3", null, l.title), l.sub && /*#__PURE__*/React.createElement("div", {
-          className: "sub"
-        }, l.sub), /*#__PURE__*/React.createElement("div", {
-          className: "lesson-status"
-        }, moved && /*#__PURE__*/React.createElement("span", {
-          className: "pill todo"
-        }, "\uD83D\uDCE6 Moved here"), /*#__PURE__*/React.createElement("span", {
-          className: "pill " + (learned ? "done" : "todo")
-        }, learned ? "✅ Read" : "▶ Read"))), l0.isCustom && /*#__PURE__*/React.createElement("span", {
-          role: "button",
-          title: "Delete this story",
-          className: "note-remove-btn",
-          style: {
-            position: "absolute",
-            top: 8,
-            right: 8
-          },
-          onClick: e => {
-            e.stopPropagation();
-            if (window.confirm('Delete the story "' + l.title + '"?')) {
-              removeCustomTopic(l.id);
-            }
-          }
-        }, "\u2715"), /*#__PURE__*/React.createElement("div", {
-          className: "chev"
-        }, "\u203A"));
-      }
-      return /*#__PURE__*/React.createElement("button", {
-        key: l.id,
-        className: "lesson-card",
-        style: {
-          width: "100%",
-          border: "2px solid var(--line)",
-          position: "relative",
-          animationDelay: Math.min(counter * 0.04, 0.4) + "s"
-        },
-        onClick: () => goLesson(subject.id, quarter.id, l.id)
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "lesson-num",
-        style: {
-          background: quarter.color
-        }
-      }, counter), /*#__PURE__*/React.createElement("div", {
-        className: "lesson-body"
-      }, /*#__PURE__*/React.createElement("h3", null, l.title), l.sub && /*#__PURE__*/React.createElement("div", {
-        className: "sub"
-      }, l.sub), /*#__PURE__*/React.createElement("div", {
-        className: "lesson-status"
-      }, moved && /*#__PURE__*/React.createElement("span", {
-        className: "pill todo"
-      }, "\uD83D\uDCE6 Moved here"), l0.isCustom && /*#__PURE__*/React.createElement("span", {
-        className: "pill todo"
-      }, "\u2728 My Topic"), getLessonVideos(l).some(u => youtubeEmbedId(u)) && /*#__PURE__*/React.createElement("span", {
-        className: "pill done"
-      }, "\uD83C\uDFAC Video"), /*#__PURE__*/React.createElement("span", {
-        className: "pill " + (learned ? "done" : "todo")
-      }, learned ? "📖 Learned" : "📖 Not started"), /*#__PURE__*/React.createElement("span", {
-        role: "button",
-        title: "Generate quiz questions with AI (Gemini) from this topic's notes",
-        className: "pill todo",
-        style: {
-          cursor: generatingIds[l.id] ? "default" : "pointer",
-          opacity: generatingIds[l.id] ? 0.6 : 1
-        },
-        onClick: e => openGenerateSetup(l, e)
-      }, generatingIds[l.id] ? "⏳ Generating…" : "✨ Generate"), best ? /*#__PURE__*/React.createElement("span", {
-        className: "pill " + (best.correct / best.total >= 0.7 ? "score-good" : "score-bad")
-      }, "\uD83D\uDCDD ", best.correct, "/", best.total) : /*#__PURE__*/React.createElement("span", {
-        className: "pill todo"
-      }, "\uD83D\uDCDD ", qCount ? qCount + " Qs in bank" : "No questions yet"))), l0.isCustom && /*#__PURE__*/React.createElement("span", {
-        role: "button",
-        title: "Delete this topic",
-        className: "note-remove-btn",
-        style: {
-          position: "absolute",
-          top: 8,
-          right: 8
-        },
-        onClick: e => {
-          e.stopPropagation();
-          if (window.confirm('Delete the topic "' + l.title + '"? This removes its notes and question bank too.')) {
-            removeCustomTopic(l.id);
-          }
-        }
-      }, "\u2715"), /*#__PURE__*/React.createElement("div", {
-        className: "chev"
-      }, "\u203A"));
-    }
-    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "backbar"
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "backbtn",
-      onClick: () => goSubjectHome(subject.id)
-    }, "\u2190"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      className: "qnum",
-      style: {
-        color: quarter.color
-      }
-    }, subject.shortName, " \xB7 ", quarter.num), /*#__PURE__*/React.createElement("h1", {
-      style: {
-        margin: 0,
-        fontSize: "22px"
-      }
-    }, quarter.icon, " ", quarter.title))), quarter.chapters.map(ch => {
-      const chLessons = nativeLessons.filter(l => l.chapterId === ch.id);
-      if (!chLessons.length) return null;
-      return /*#__PURE__*/React.createElement("div", {
-        key: ch.id
-      }, /*#__PURE__*/React.createElement("h3", {
-        className: "chapter-title"
-      }, ch.title), chLessons.map(l0 => renderLessonCard(l0, false)));
-    }), (() => {
-      const myTopics = nativeLessons.filter(l => l.chapterId === "custom");
-      if (!myTopics.length) return null;
-      return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
-        className: "chapter-title"
-      }, isStories ? "✨ My Stories" : "✨ My Topics"), myTopics.map(l0 => renderLessonCard(l0, false)));
-    })(), movedInLessons.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
-      className: "chapter-title"
-    }, isStories ? "📦 Moved Stories" : "📦 Moved Topics"), movedInLessons.map(l0 => renderLessonCard(l0, true))), /*#__PURE__*/React.createElement("div", {
-      className: "note-block",
-      style: {
-        padding: 14,
-        marginBottom: 18
-      }
-    }, addingTopic ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
+      className: "passport-title"
+    }, "Welcome back"), /*#__PURE__*/React.createElement("div", {
+      className: "passport-name"
+    }, "\uD83D\uDC4B Hi, Charlie!"), /*#__PURE__*/React.createElement("div", {
       className: "field-label",
       style: {
-        marginTop: 0
+        color: "#C9C2FF",
+        margin: "0 0 6px"
       }
-    }, isStories ? "Story title" : "Topic title"), /*#__PURE__*/React.createElement("input", {
-      type: "text",
-      className: "text-input",
-      value: newTopicTitle,
-      onChange: e => setNewTopicTitle(e.target.value),
-      placeholder: isStories ? "e.g. The Turtle and the Monkey" : "e.g. The Water Cycle",
-      autoFocus: true
-    }), /*#__PURE__*/React.createElement("label", {
-      className: "field-label"
-    }, isStories ? "Short blurb (optional)" : "Subtitle (optional)"), /*#__PURE__*/React.createElement("input", {
-      type: "text",
-      className: "text-input",
-      value: newTopicSub,
-      onChange: e => setNewTopicSub(e.target.value),
-      placeholder: isStories ? "e.g. A Filipino folktale about patience" : "e.g. Evaporation, Condensation, Precipitation"
-    }), !isStories && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
-      className: "field-label"
-    }, "Add inside"), /*#__PURE__*/React.createElement("select", {
-      className: "text-input",
-      value: newTopicChapter,
-      onChange: e => setNewTopicChapter(e.target.value)
-    }, /*#__PURE__*/React.createElement("option", {
-      value: ""
-    }, "\u2728 My Topics (new section)"), quarter.chapters.map(ch => /*#__PURE__*/React.createElement("option", {
-      key: ch.id,
-      value: ch.id
-    }, ch.title)))), /*#__PURE__*/React.createElement("div", {
-      className: "learn-footer",
+    }, "Overall Progress \u2014 ", overallPct, "%"), /*#__PURE__*/React.createElement("div", {
+      className: "progress-track",
       style: {
-        gap: 10
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-ghost",
-      onClick: () => {
-        setAddingTopic(false);
-        setNewTopicTitle("");
-        setNewTopicSub("");
-        setNewTopicChapter("");
-      }
-    }, "Cancel"), /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-primary",
-      style: {
-        background: quarter.color
-      },
-      disabled: !newTopicTitle.trim(),
-      onClick: submitNewTopic
-    }, "+ ", isStories ? "Create Story" : "Create Topic", " \u2192"))) : /*#__PURE__*/React.createElement("button", {
-      className: "btn",
-      style: {
-        background: quarter.color,
-        color: "#fff",
-        width: "100%"
-      },
-      onClick: () => setAddingTopic(true)
-    }, "+ Add New ", isStories ? "Story" : "Topic", " to ", quarter.title)), !isStories && /*#__PURE__*/React.createElement("div", {
-      className: "longquiz-card",
-      style: {
-        flexDirection: "column",
-        alignItems: "stretch"
+        background: "rgba(237,231,214,0.14)",
+        boxShadow: "inset 0 1px 3px rgba(0,0,0,0.3), 0 0 10px rgba(53,242,224,0.25)"
       }
     }, /*#__PURE__*/React.createElement("div", {
+      className: "progress-fill",
       style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 14
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "lqicon"
-    }, "\uD83C\uDFC6"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        flex: 1
-      }
-    }, /*#__PURE__*/React.createElement("h3", null, quarter.title, " \u2014 Long Quiz"), /*#__PURE__*/React.createElement("p", null, "All topics in this quarter, combined into one test. ", totalBankQ, " question", totalBankQ === 1 ? "" : "s", " available.", progress.longQuiz[quarter.id] ? " Best: " + progress.longQuiz[quarter.id].best.correct + "/" + progress.longQuiz[quarter.id].best.total : "")), !showSetup && (totalBankQ > 0 ? /*#__PURE__*/React.createElement("button", {
-      className: "btn",
-      style: {
-        background: quarter.color,
-        color: "#fff"
-      },
-      onClick: () => setShowSetup(true)
-    }, "Start") : /*#__PURE__*/React.createElement("span", {
-      className: "pill todo"
-    }, "No questions yet"))), showSetup && /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginTop: 14
-      }
-    }, longAvailTopics.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
-      className: "field-label"
-    }, "Which topic(s)?"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        maxWidth: 320,
-        marginBottom: 14
-      }
-    }, /*#__PURE__*/React.createElement(TopicPicker, {
-      topics: longAvailTopicsWithCounts,
-      totalCount: totalBankQ,
-      selected: longTopics,
-      onToggle: t => toggleTopicSelection(longTopics, t, setLongTopics)
-    }))), /*#__PURE__*/React.createElement("label", {
-      className: "field-label"
-    }, "Question type?"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginBottom: 14
-      }
-    }, /*#__PURE__*/React.createElement(QuizTypePicker, {
-      pool: longTopicPool,
-      selected: longType,
-      onSelect: setLongType
-    })), longFilteredCount === 0 ? /*#__PURE__*/React.createElement("p", {
-      className: "sub"
-    }, "No questions of this type for this topic yet.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
-      className: "field-label"
-    }, "How many questions would you like to take? (1\u2013", longFilteredCount, ")"), /*#__PURE__*/React.createElement("input", {
-      type: "number",
-      className: "text-input",
-      min: 1,
-      max: longFilteredCount,
-      value: longCount,
-      onChange: e => {
-        const raw = e.target.value;
-        if (raw === "") {
-          setLongCount("");
-          return;
-        }
-        const v = parseInt(raw, 10);
-        if (Number.isNaN(v)) return;
-        setLongCount(Math.max(1, Math.min(v, longFilteredCount)));
-      },
-      onBlur: () => {
-        if (longCount === "" || Number.isNaN(longCount)) setLongCount(1);
+        width: overallPct + "%",
+        background: "linear-gradient(90deg, var(--aw-cyan), var(--aw-magenta))",
+        boxShadow: "0 0 10px rgba(53,242,224,0.6)"
       }
     })), /*#__PURE__*/React.createElement("div", {
-      className: "learn-footer",
+      className: "smeta",
       style: {
-        gap: 10
+        color: "#C9C2FF",
+        marginTop: 8
       }
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-ghost",
-      onClick: () => setShowSetup(false)
-    }, "Cancel"), longFilteredCount > 0 && /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-primary",
-      style: {
-        background: quarter.color
-      },
-      onClick: () => startLongQuiz(quarter, longCount, longTopics, longType)
-    }, "Start Long Quiz \u2192")))), genLesson && /*#__PURE__*/React.createElement("div", {
-      className: "gen-setup-overlay",
-      onClick: () => setGenLesson(null)
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "gen-setup-card",
-      onClick: e => e.stopPropagation()
-    }, /*#__PURE__*/React.createElement("h3", {
-      style: {
-        margin: "0 0 4px"
+    }, totals.learned, "/", totals.total, " topics learned across all subjects")), /*#__PURE__*/React.createElement("div", {
+      className: "section-title"
+    }, "Subjects"), /*#__PURE__*/React.createElement("div", {
+      className: "subject-square-grid"
+    }, SUBJECTS.filter(s => s.special !== "game" || settings.darkMode).map((s, si) => {
+      if (s.special === "reference") {
+        const total = GENERAL_CATEGORIES.reduce((n, c) => n + c.words.length, 0);
+        const known = Object.keys(generalKnown).filter(k => generalKnown[k]).length;
+        return /*#__PURE__*/React.createElement("button", {
+          key: s.id,
+          className: "subject-square" + (known >= total && total > 0 ? " complete" : ""),
+          onClick: () => goGeneral(s.id),
+          style: {
+            animationDelay: si * 0.05 + "s"
+          }
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "sq-icon"
+        }, /*#__PURE__*/React.createElement(SubjectIcon, {
+          icon: s.icon
+        })), /*#__PURE__*/React.createElement("div", {
+          className: "sq-label"
+        }, s.shortName), /*#__PURE__*/React.createElement("div", {
+          className: "sq-frac",
+          style: {
+            color: s.color
+          }
+        }, known, "/", total));
       }
-    }, "\u2728 Generate Questions"), /*#__PURE__*/React.createElement("p", {
-      className: "sub",
-      style: {
-        margin: "0 0 14px"
+      if (s.special === "game") {
+        return /*#__PURE__*/React.createElement("button", {
+          key: s.id,
+          className: "subject-square",
+          onClick: goTyping,
+          style: {
+            animationDelay: si * 0.05 + "s",
+            background: "linear-gradient(135deg, #171233, #0A0A1C)",
+            boxShadow: "0 0 0 1px rgba(53,242,224,0.3)"
+          }
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "sq-icon"
+        }, /*#__PURE__*/React.createElement(SubjectIcon, {
+          icon: s.icon
+        })), /*#__PURE__*/React.createElement("div", {
+          className: "sq-label",
+          style: {
+            color: "#EAF1FF"
+          }
+        }, s.shortName), /*#__PURE__*/React.createElement("div", {
+          className: "sq-frac",
+          style: {
+            color: "#35F2E0"
+          }
+        }, "PLAY"));
       }
-    }, "For \"", mergeLesson(genLesson, edits).title, "\""), /*#__PURE__*/React.createElement("label", {
-      className: "field-label"
-    }, "How many questions?"), /*#__PURE__*/React.createElement("select", {
-      className: "text-input",
-      value: genCount,
-      onChange: e => setGenCount(parseInt(e.target.value, 10))
-    }, (() => {
-      const range = getGenerateCountRange(genTypes);
-      return getGenerateCountOptions(genTypes).map(v => /*#__PURE__*/React.createElement("option", {
-        key: v,
-        value: v
-      }, v, v === range.min ? " (recommended)" : ""));
-    })()), /*#__PURE__*/React.createElement("label", {
-      className: "field-label"
-    }, "Question type(s)"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 8,
-        marginBottom: 6
+      const learned = subjectLearnedCount(s, progress);
+      const total = subjectLessonCount(s);
+      return /*#__PURE__*/React.createElement("button", {
+        key: s.id,
+        className: "subject-square" + (learned === total && total > 0 ? " complete" : ""),
+        onClick: () => goSubjectHome(s.id),
+        style: {
+          animationDelay: si * 0.05 + "s"
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "sq-icon"
+      }, /*#__PURE__*/React.createElement(SubjectIcon, {
+        icon: s.icon
+      })), /*#__PURE__*/React.createElement("div", {
+        className: "sq-label"
+      }, s.shortName), /*#__PURE__*/React.createElement("div", {
+        className: "sq-frac",
+        style: {
+          color: s.color
+        }
+      }, learned, "/", total));
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "footer-note"
+    }, "SACRED", " ", /*#__PURE__*/React.createElement("span", {
+      className: "footer-heart-trigger",
+      title: "Sacred Heart Academy of Pasig",
+      onClick: () => {
+        const entered = window.prompt("💀😈 Enter the SECRET CODE, if you dare... 😈💀");
+        if (entered === null) return;
+        if (entered === "C678") {
+          updateSettings({
+            darkMode: !settings.darkMode
+          });
+        } else {
+          window.alert("👻 Nope! That's not the secret code, try again... 👻");
+        }
       }
-    }, GENERATE_TYPE_ORDER.map(t => /*#__PURE__*/React.createElement("span", {
-      key: t,
-      className: "pill " + (genTypes.has(t) ? "done" : "todo"),
-      style: {
-        cursor: "pointer"
-      },
-      onClick: () => toggleGenType(t)
-    }, genTypes.has(t) ? "✓ " : "", GENERATE_TYPE_LABELS[t]))), /*#__PURE__*/React.createElement("label", {
-      className: "field-label"
-    }, "Topic / subtopic (optional)"), /*#__PURE__*/React.createElement("input", {
-      type: "text",
-      className: "text-input",
-      placeholder: "Defaults to the whole lesson: \"" + mergeLesson(genLesson, edits).title + "\"",
-      value: genTopic,
-      onChange: e => setGenTopic(e.target.value)
-    }), /*#__PURE__*/React.createElement("label", {
-      className: "field-label"
-    }, "Topic (optional)"), /*#__PURE__*/React.createElement("input", {
-      type: "text",
-      className: "text-input",
-      placeholder: "e.g. \"Multiplication\" — just a label, won't change the questions",
-      value: genTopicTag,
-      onChange: e => setGenTopicTag(e.target.value)
-    }), /*#__PURE__*/React.createElement("p", {
-      className: "sub",
-      style: {
-        margin: "4px 0 0"
-      }
-    }, "This has nothing to do with what Gemini writes \u2014 it just tags every generated question with this topic so you can easily find it later when starting a quiz."), /*#__PURE__*/React.createElement("label", {
-      className: "field-label"
-    }, "Difficulty"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        gap: 8,
-        marginBottom: 6
-      }
-    }, [["easy", "🌱 Easy"], ["medium", "⭐ Medium"], ["hard", "🔥 Hard"]].map(([key, label]) => /*#__PURE__*/React.createElement("span", {
-      key: key,
-      className: "pill " + (genDifficulty === key ? "done" : "todo"),
-      style: {
-        cursor: "pointer"
-      },
-      onClick: () => setGenDifficulty(key)
-    }, label))), /*#__PURE__*/React.createElement("div", {
-      className: "learn-footer",
-      style: {
-        gap: 10
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-ghost",
-      onClick: () => setGenLesson(null)
-    }, "Cancel"), /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-primary",
-      style: {
-        background: quarter.color
-      },
-      onClick: runGenerateQuestions
-    }, "\u2728 Generate \u2192")))));
+    }, "HEART"), " ", "ACADEMY OF PASIG \xB7 GRADE SCHOOL DEPARTMENT"));
   }
 
-  /* ---------------- LESSON SCREEN ---------------- */
-  function LessonScreen() {
-    const subject = currentSubject();
-    const quarter = subject.quarters.find(q => q.id === nav.quarterId);
-    const rawLesson = allSubjectLessons(subject, customLessons).find(l => l.id === nav.lessonId);
-    const lesson = mergeLesson(rawLesson, edits);
-    const tab = nav.tab || "learn";
-    function setTab(t) {
-      setNav(prev => ({
-        ...prev,
-        tab: t
-      }));
+function App() {
+  const [progress, setProgress] = useState(loadProgress());
+  const [edits, setEdits] = useState(loadEdits());
+  const [bank, setBank] = useState(loadBank());
+  const [moves, setMoves] = useState(loadMoves());
+  const [customLessons, setCustomLessons] = useState(loadCustomLessons());
+  const [settings, setSettings] = useState(loadSettings());
+  const [notes, setNotes] = useState(loadNotes());
+  const [activity, setActivity] = useState(loadActivity());
+  const [generalKnown, setGeneralKnown] = useState(loadGeneralKnown());
+  const [grades, setGrades] = useState(loadGrades());
+  const [gradeConfig, setGradeConfig] = useState(loadGradeConfig());
+  const [nav, setNav] = useState({
+    screen: "dashboard"
+  });
+  const [quizSession, setQuizSession] = useState(null); // {kind:'lesson'|'long', questions, accent, title, key}
+  const [saveFlash, setSaveFlash] = useState(false);
+  const importInputRef = useRef(null);
+
+  // Report-card UI state lives here (not inside GradesScreen) because GradesScreen
+  // is re-created as a brand-new component on every App render (it's declared
+  // inside App). If this state lived in GradesScreen's own useState, React would
+  // treat every grade edit as "new component -> reset local state", which is why
+  // tapping Final/Detailed (or anything that updates grades) used to snap the
+  // open subject closed. Keeping it up here means it survives those re-renders.
+  const [openSubject, setOpenSubject] = useState(null);
+  const [selectedQuarter, setSelectedQuarter] = useState(GRADE_QUARTERS[0].id);
+  const [showGradeSettings, setShowGradeSettings] = useState(false);
+  useEffect(() => {
+    saveProgress(progress);
+  }, [progress]);
+  useEffect(() => {
+    saveEdits(edits);
+  }, [edits]);
+  useEffect(() => {
+    saveBank(bank);
+  }, [bank]);
+  useEffect(() => {
+    saveMoves(moves);
+  }, [moves]);
+  useEffect(() => {
+    saveCustomLessons(customLessons);
+  }, [customLessons]);
+  useEffect(() => {
+    saveSettings(settings);
+  }, [settings]);
+  useEffect(() => {
+    saveNotes(notes);
+  }, [notes]);
+  useEffect(() => {
+    saveActivity(activity);
+  }, [activity]);
+  useEffect(() => {
+    saveGeneralKnown(generalKnown);
+  }, [generalKnown]);
+  useEffect(() => {
+    saveGrades(grades);
+  }, [grades]);
+  useEffect(() => {
+    saveGradeConfig(gradeConfig);
+  }, [gradeConfig]);
+  useEffect(() => {
+    setSoundEnabled(settings.soundEnabled !== false);
+  }, [settings.soundEnabled]);
+  useEffect(() => {
+    document.body.classList.toggle("dark-mode", !!settings.darkMode);
+  }, [settings.darkMode]);
+  useEffect(() => {
+    // If the background Firebase pull finds newer data than what we
+    // rendered with, refresh state from localStorage without a reload.
+    function onCloudSynced() {
+      setProgress(loadProgress());
+      setEdits(loadEdits());
+      setBank(loadBank());
+      setMoves(loadMoves());
+      setCustomLessons(loadCustomLessons());
+      setSettings(loadSettings());
+      setNotes(loadNotes());
+      setActivity(loadActivity());
+      setGeneralKnown(loadGeneralKnown());
+      setGrades(loadGrades());
+      setGradeConfig(loadGradeConfig());
     }
-    const [editingLesson, setEditingLesson] = useState(!!nav.startEdit);
-    const [movingLesson, setMovingLesson] = useState(false);
-    const [moveTarget, setMoveTarget] = useState("");
-    const [quizCount, setQuizCount] = useState(1);
-    const [quizTopics, setQuizTopics] = useState([TOPIC_ALL]);
-    const [quizType, setQuizType] = useState(TYPE_ALL);
-    const rec = progress.lessons[lesson.id];
-    const qBank = getQuestions(lesson.id);
-    const otherQuarters = subject.quarters.filter(q => q.id !== quarter.id);
-    const availTopics = bankTopics(qBank);
-    const availTopicsWithCounts = availTopics.map(t => ({
-      name: t,
-      count: qBank.filter(q => normTopic(q.topic) === t).length
+    window.addEventListener("gs4-cloud-synced", onCloudSynced);
+    return () => window.removeEventListener("gs4-cloud-synced", onCloudSynced);
+  }, []);
+  async function saveEverythingNow() {
+    Sound.save();
+    saveProgress(progress);
+    saveEdits(edits);
+    saveBank(bank);
+    saveMoves(moves);
+    saveCustomLessons(customLessons);
+    saveSettings(settings);
+    saveNotes(notes);
+    saveActivity(activity);
+    saveGeneralKnown(generalKnown);
+    saveGrades(grades);
+    saveGradeConfig(gradeConfig);
+    // Skip the debounce and push the full snapshot to Firebase right away.
+    clearTimeout(cloudSyncTimer);
+    const cloudOk = await pushToCloud();
+    setSaveFlash(cloudOk ? "✅ Saved to Firebase!" : "⚠️ Saved on this device only (offline)");
+    setTimeout(() => setSaveFlash(false), 1800);
+  }
+  async function exportAllData() {
+    setSaveFlash("⏳ Gathering backup (incl. offline audio)…");
+    // storyAudioCache lives in IndexedDB (not localStorage) and normally
+    // never touches Firebase/cloud sync, so it has to be pulled in
+    // separately here to make it into the JSON backup file.
+    const storyAudioCache = await exportStoryAudioCache();
+    const payload = {
+      app: "gs2-learning-passport",
+      exportedAt: new Date().toISOString(),
+      data: {
+        progress,
+        edits,
+        bank,
+        moves,
+        customLessons,
+        settings,
+        notes,
+        activity,
+        generalKnown,
+        grades,
+        gradeConfig
+      },
+      // Kept as a separate top-level section (not inside `data`) since it's
+      // IndexedDB content, not a localStorage key like everything above.
+      storyAudioCache
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json"
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `learning-passport-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setSaveFlash("⬇️ Exported backup file!");
+    setTimeout(() => setSaveFlash(false), 1800);
+  }
+  function importAllData(file) {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        const d = parsed && parsed.data ? parsed.data : parsed; // allow raw or wrapped JSON
+        if (!d || typeof d !== "object") throw new Error("bad format");
+        const audioEntries = parsed && Array.isArray(parsed.storyAudioCache) ? parsed.storyAudioCache : null;
+        const audioNote = audioEntries && audioEntries.length ? ` and ${audioEntries.length} cached story audio file(s)` : "";
+        if (!window.confirm(`Import this backup? This will replace all current progress, topics, notes, and quiz bank data${audioNote} on this device.`)) return;
+        if (d.progress) setProgress(d.progress);
+        if (d.edits) setEdits(d.edits);
+        if (d.bank) setBank(d.bank);
+        if (d.moves) setMoves(d.moves);
+        if (d.customLessons) setCustomLessons(d.customLessons);
+        if (d.settings) setSettings(d.settings);
+        if (d.notes) setNotes(d.notes);
+        if (d.activity) setActivity(d.activity);
+        if (d.generalKnown) setGeneralKnown(d.generalKnown);
+        if (d.grades) setGrades(d.grades);
+        if (d.gradeConfig) setGradeConfig(d.gradeConfig);
+        // Persist immediately so a refresh doesn't race the effects.
+        if (d.progress) saveProgress(d.progress);
+        if (d.edits) saveEdits(d.edits);
+        if (d.bank) saveBank(d.bank);
+        if (d.moves) saveMoves(d.moves);
+        if (d.customLessons) saveCustomLessons(d.customLessons);
+        if (d.settings) saveSettings(d.settings);
+        if (d.notes) saveNotes(d.notes);
+        if (d.activity) saveActivity(d.activity);
+        if (d.generalKnown) saveGeneralKnown(d.generalKnown);
+        if (d.grades) saveGrades(d.grades);
+        if (d.gradeConfig) saveGradeConfig(d.gradeConfig);
+        // Restore the IndexedDB offline audio cache, if the backup has one.
+        if (audioEntries && audioEntries.length) {
+          setSaveFlash("⏳ Restoring offline audio…");
+          await importStoryAudioCache(audioEntries);
+        }
+        clearTimeout(cloudSyncTimer);
+        const cloudOk = await pushToCloud();
+        setSaveFlash(cloudOk ? "✅ Imported & synced!" : "✅ Imported (saved on this device only)");
+        setTimeout(() => setSaveFlash(false), 1800);
+      } catch (err) {
+        setSaveFlash("⚠️ Import failed: invalid file");
+        setTimeout(() => setSaveFlash(false), 2200);
+      }
+    };
+    reader.readAsText(file);
+  }
+  function logLessonLearned(lessonId) {
+    setActivity(prev => {
+      const today = todayStr();
+      if (prev.some(a => a.type === "lesson" && a.date === today && a.lessonId === lessonId)) return prev;
+      return [...prev, {
+        type: "lesson",
+        date: today,
+        lessonId,
+        ts: Date.now()
+      }];
+    });
+  }
+  function logQuestionsAnswered(count) {
+    setActivity(prev => [...prev, {
+      type: "questions",
+      date: todayStr(),
+      count,
+      ts: Date.now()
+    }]);
+  }
+  function updateSettings(patch) {
+    setSettings(prev => ({
+      ...prev,
+      ...patch
     }));
-    const topicFilteredBank = filterByTopics(qBank, quizTopics);
-    const filteredBank = filterByType(topicFilteredBank, quizType);
-    useEffect(() => {
-      setQuizCount(Math.min(10, filteredBank.length) || 1);
-    }, [lesson.id, filteredBank.length]);
-    useEffect(() => {
-      setQuizType(TYPE_ALL);
-    }, [quizTopics, lesson.id]);
-    const activeLessonQuiz = tab === "quiz" && quizSession && quizSession.kind === "lesson" && quizSession.key === lesson.id && !quizSession.finalAnswers;
-    const isStories = subject.special === "stories";
-    if (isStories) {
-      return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-        className: "backbar"
-      }, /*#__PURE__*/React.createElement("button", {
-        className: "backbtn",
-        onClick: () => goQuarter(subject.id, quarter.id)
-      }, "\u2190"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-        className: "qnum",
-        style: {
-          color: quarter.color,
-          fontSize: "9.6px"
-        }
-      }, subject.shortName, " \xB7 ", quarter.title), /*#__PURE__*/React.createElement("h1", {
-        style: {
-          margin: 0,
-          fontSize: "12px"
-        }
-      }, lesson.title))), /*#__PURE__*/React.createElement("div", {
-        key: "story",
-        className: "tab-fade"
-      }, editingLesson ? /*#__PURE__*/React.createElement(LessonEditForm, {
-        lesson: lesson,
-        accent: quarter.color,
-        defaultNoteType: "story",
-        storyMode: true,
-        onSave: data => {
-          saveLessonEdit(lesson.id, data);
-          setEditingLesson(false);
-        },
-        onCancel: () => setEditingLesson(false)
-      }) : movingLesson ? /*#__PURE__*/React.createElement("div", {
-        className: "journal-page"
-      }, /*#__PURE__*/React.createElement("h3", {
-        style: {
-          marginTop: 0
-        }
-      }, "Move \"", lesson.title, "\" to another shelf"), /*#__PURE__*/React.createElement("p", {
-        className: "sub"
-      }, "Currently on: ", quarter.title), /*#__PURE__*/React.createElement("label", {
-        className: "field-label"
-      }, "Move to"), /*#__PURE__*/React.createElement("select", {
-        className: "text-input",
-        value: moveTarget,
-        onChange: e => setMoveTarget(e.target.value)
-      }, /*#__PURE__*/React.createElement("option", {
-        value: ""
-      }, "Choose a shelf\u2026"), otherQuarters.map(q => /*#__PURE__*/React.createElement("option", {
-        key: q.id,
-        value: q.id
-      }, q.icon, " ", q.title))), /*#__PURE__*/React.createElement("div", {
-        className: "learn-footer",
-        style: {
-          gap: 10
-        }
-      }, /*#__PURE__*/React.createElement("button", {
-        className: "btn btn-ghost",
-        onClick: () => {
-          setMovingLesson(false);
-          setMoveTarget("");
-        }
-      }, "Cancel"), /*#__PURE__*/React.createElement("button", {
-        className: "btn btn-primary",
-        style: {
-          background: quarter.color
-        },
-        disabled: !moveTarget,
-        onClick: () => {
-          moveLesson(lesson.id, moveTarget);
-          setMovingLesson(false);
-          goQuarter(subject.id, moveTarget);
-        }
-      }, "\u2194 Move Story"))) : /*#__PURE__*/React.createElement("div", {
-        className: "journal-page learn-page"
-      }, /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          gap: 10,
-          flexWrap: "wrap"
-        }
-      }, /*#__PURE__*/React.createElement("h3", {
-        style: {
-          marginTop: 0
-        }
-      }, lesson.title, lesson.sub ? " — " + lesson.sub : ""), /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: "flex",
-          gap: 8,
-          flexWrap: "wrap"
-        }
-      }, /*#__PURE__*/React.createElement("button", {
-        className: "btn btn-ghost btn-sm",
-        onClick: () => setEditingLesson(true)
-      }, "\u270F\uFE0F Edit Story"), /*#__PURE__*/React.createElement("button", {
-        className: "btn btn-ghost btn-sm",
-        onClick: () => setMovingLesson(true)
-      }, "\u2194 Move Shelf"), rawLesson.isCustom && /*#__PURE__*/React.createElement("button", {
-        className: "btn btn-ghost btn-sm",
-        onClick: () => {
-          if (window.confirm('Delete the story "' + lesson.title + '"?')) {
-            removeCustomTopic(lesson.id);
-            goQuarter(subject.id, quarter.id);
-          }
-        }
-      }, "\uD83D\uDDD1 Delete Story"))), rawLesson.homeQuarterId !== quarter.id && /*#__PURE__*/React.createElement("p", {
-        className: "sub"
-      }, "\uD83D\uDCE6 Originally on ", subject.quarters.find(q => q.id === rawLesson.homeQuarterId).title, ", moved to ", quarter.title, "."), (() => {
-        const notes = getLessonNotes(lesson);
-        if (!notes.length) {
-          return /*#__PURE__*/React.createElement("p", {
-            className: "sub"
-          }, "This story doesn't have any text yet \u2014 tap \"\u270F\uFE0F Edit Story\" to paste or write it in.");
-        }
-        return /*#__PURE__*/React.createElement("div", {
-          className: "learn-notes-col"
-        }, notes.map((note, i) => note.type === "story" ? /*#__PURE__*/React.createElement(StoryCard, {
-          key: note.id || i,
-          note: note,
-          index: i + 1
-        }) : /*#__PURE__*/React.createElement("div", {
-          className: "note-view",
-          key: note.id || i,
-          dangerouslySetInnerHTML: {
-            __html: note.html
-          }
-        })));
-      })(), /*#__PURE__*/React.createElement("div", {
-        className: "learn-footer",
-        style: {
-          gap: 8,
-          flexWrap: "wrap"
-        }
-      }, /*#__PURE__*/React.createElement("button", {
-        className: "btn btn-primary",
-        style: {
-          background: quarter.color
-        },
-        onClick: () => markLearned(lesson.id)
-      }, rec && rec.learned ? "✅ Marked as Read" : "Mark as Read")))));
-    }
-    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "backbar"
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "backbtn",
-      onClick: () => goQuarter(subject.id, quarter.id)
-    }, "\u2190"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      className: "qnum",
-      style: {
-        color: quarter.color,
-        fontSize: "9.6px"
+  }
+  function addNote(text) {
+    const t = text.trim();
+    if (!t) return;
+    setNotes(prev => [{
+      id: "n" + Date.now(),
+      text: t,
+      createdAt: Date.now()
+    }, ...prev]);
+  }
+  function deleteNote(id) {
+    setNotes(prev => prev.filter(n => n.id !== id));
+  }
+  function saveLessonEdit(lessonId, data) {
+    setEdits(prev => ({
+      ...prev,
+      [lessonId]: data
+    }));
+  }
+  function setLessonQuestions(lessonId, questions) {
+    setBank(prev => ({
+      ...prev,
+      [lessonId]: questions
+    }));
+  }
+  function getQuestions(lessonId) {
+    return bank[lessonId] || [];
+  }
+  function moveLesson(lessonId, quarterId) {
+    setMoves(prev => ({
+      ...prev,
+      [lessonId]: {
+        quarterId
       }
-    }, rawLesson.chapterTitle), /*#__PURE__*/React.createElement("h1", {
-      style: {
-        margin: 0,
-        fontSize: "12px"
-      }
-    }, lesson.title))), /*#__PURE__*/React.createElement("div", {
-      className: "tabbar"
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "tab" + (tab === "learn" ? " active" : ""),
-      onClick: () => {
-        setTab("learn");
-        setEditingLesson(false);
-      }
-    }, "\uD83D\uDCD6 Learn"), /*#__PURE__*/React.createElement("button", {
-      className: "tab" + (tab === "quiz" ? " active" : ""),
-      onClick: () => setTab("quiz")
-    }, "\uD83D\uDCDD Quiz", rec && rec.best ? " (" + rec.best.correct + "/" + rec.best.total + ")" : ""), activeLessonQuiz && /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-ghost btn-sm",
-      title: "Stop this quiz",
-      onClick: () => {
-        if (window.confirm("Stop this quiz? Your progress on this attempt won't be saved.")) {
-          Sound.back();
-          setQuizSession(null);
+    }));
+  }
+  function addCustomTopic(subjectId, quarterId, title, sub, chapterId) {
+    const id = newLessonId();
+    setCustomLessons(prev => [...prev, {
+      id,
+      subjectId,
+      quarterId,
+      chapterId: chapterId || null,
+      title: title.trim() || "New Topic",
+      sub: (sub || "").trim(),
+      createdAt: Date.now()
+    }]);
+    return id;
+  }
+  function removeCustomTopic(lessonId) {
+    setCustomLessons(prev => prev.filter(c => c.id !== lessonId));
+    setEdits(prev => {
+      const n = {
+        ...prev
+      };
+      delete n[lessonId];
+      return n;
+    });
+    setBank(prev => {
+      const n = {
+        ...prev
+      };
+      delete n[lessonId];
+      return n;
+    });
+    setProgress(prev => {
+      const n = {
+        ...prev,
+        lessons: {
+          ...prev.lessons
         }
-      }
-    }, "\u2715 Stop Quiz"), /*#__PURE__*/React.createElement("button", {
-      className: "tab" + (tab === "manage" ? " active" : ""),
-      onClick: () => setTab("manage")
-    }, "\uD83D\uDDC2\uFE0F Questions", qBank.length ? " (" + qBank.length + ")" : "")), /*#__PURE__*/React.createElement("div", {
-      key: tab,
-      className: "tab-fade"
-    }, tab === "learn" && (editingLesson ? /*#__PURE__*/React.createElement(LessonEditForm, {
-      lesson: lesson,
-      accent: quarter.color,
-      onSave: data => {
-        saveLessonEdit(lesson.id, data);
-        setEditingLesson(false);
-      },
-      onCancel: () => setEditingLesson(false)
-    }) : movingLesson ? /*#__PURE__*/React.createElement("div", {
-      className: "journal-page"
-    }, /*#__PURE__*/React.createElement("h3", {
-      style: {
-        marginTop: 0
-      }
-    }, "Move \"", lesson.title, "\" to another quarter"), /*#__PURE__*/React.createElement("p", {
-      className: "sub"
-    }, "Currently in: ", quarter.num, " \u2014 ", quarter.title), /*#__PURE__*/React.createElement("label", {
-      className: "field-label"
-    }, "Move to"), /*#__PURE__*/React.createElement("select", {
-      className: "text-input",
-      value: moveTarget,
-      onChange: e => setMoveTarget(e.target.value)
-    }, /*#__PURE__*/React.createElement("option", {
-      value: ""
-    }, "Choose a quarter\u2026"), otherQuarters.map(q => /*#__PURE__*/React.createElement("option", {
-      key: q.id,
-      value: q.id
-    }, q.num, " \u2014 ", q.title))), /*#__PURE__*/React.createElement("div", {
-      className: "learn-footer",
-      style: {
-        gap: 10
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-ghost",
-      onClick: () => {
-        setMovingLesson(false);
-        setMoveTarget("");
-      }
-    }, "Cancel"), /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-primary",
-      style: {
-        background: quarter.color
-      },
-      disabled: !moveTarget,
-      onClick: () => {
-        moveLesson(lesson.id, moveTarget);
-        setMovingLesson(false);
-        goQuarter(subject.id, moveTarget);
-      }
-    }, "\u2194 Move Topic"))) : /*#__PURE__*/React.createElement("div", {
-      className: "journal-page learn-page"
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        gap: 10,
-        flexWrap: "wrap"
-      }
-    }, /*#__PURE__*/React.createElement("h3", {
-      style: {
-        marginTop: 0
-      }
-    }, lesson.title, lesson.sub ? " — " + lesson.sub : ""), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        gap: 8,
-        flexWrap: "wrap"
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-ghost btn-sm",
-      onClick: () => setEditingLesson(true)
-    }, "\u270F\uFE0F Edit Topic"), /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-ghost btn-sm",
-      onClick: () => setMovingLesson(true)
-    }, "\u2194 Move Quarter"), rawLesson.isCustom && /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-ghost btn-sm",
-      onClick: () => {
-        if (window.confirm('Delete the topic "' + lesson.title + '"? This removes its notes and question bank too.')) {
-          removeCustomTopic(lesson.id);
-          goQuarter(subject.id, quarter.id);
+      };
+      delete n.lessons[lessonId];
+      return n;
+    });
+  }
+  function currentSubject() {
+    return SUBJECTS.find(s => s.id === nav.subjectId);
+  }
+  function goDashboard() {
+    Sound.back();
+    setNav({
+      screen: "dashboard"
+    });
+    setQuizSession(null);
+  }
+  function goNotes() {
+    Sound.nav();
+    setNav({
+      screen: "notes"
+    });
+    setQuizSession(null);
+  }
+  function goGrades() {
+    Sound.nav();
+    setNav({
+      screen: "grades"
+    });
+    setQuizSession(null);
+  }
+  function setGradeEntry(subjectId, quarterId, patch) {
+    setGrades(prev => {
+      const subj = {
+        ...(prev[subjectId] || {})
+      };
+      const q = {
+        ...(subj[quarterId] || {
+          mode: "final"
+        })
+      };
+      subj[quarterId] = {
+        ...q,
+        ...patch
+      };
+      return {
+        ...prev,
+        [subjectId]: subj
+      };
+    });
+  }
+  // Clears a manually-typed Final-mode override for one component, so it
+  // falls back to the auto-computed Detailed-items average again. Also
+  // clears the old-style value stored directly under the plain key, but
+  // only when that isn't actually holding Detailed items (an array).
+  function clearGradeFinalOverride(subjectId, quarterId, key) {
+    setGrades(prev => {
+      const subj = {
+        ...(prev[subjectId] || {})
+      };
+      const q = {
+        ...(subj[quarterId] || {
+          mode: "final"
+        })
+      };
+      const patch = {
+        [key + "Final"]: ""
+      };
+      if (q[key] != null && !Array.isArray(q[key])) patch[key] = "";
+      subj[quarterId] = {
+        ...q,
+        ...patch
+      };
+      return {
+        ...prev,
+        [subjectId]: subj
+      };
+    });
+  }
+  function defaultTotalFor(key) {
+    // WW starts out of 10, PT out of 20 (both still user-editable); QA has no
+    // preset total since it's a single graded item that varies by quarter.
+    if (key === "ww") return 10;
+    if (key === "pt") return 20;
+    return "";
+  }
+  function addGradeItem(subjectId, quarterId, key) {
+    setGrades(prev => {
+      const subj = {
+        ...(prev[subjectId] || {})
+      };
+      const q = {
+        ...(subj[quarterId] || {
+          mode: "final"
+        })
+      };
+      const existing = q[key] || [];
+      if (key === "qa" && existing.length >= 1) return prev; // only one Quarterly Assessment per quarter
+      const items = [...existing, {
+        score: "",
+        total: defaultTotalFor(key)
+      }];
+      subj[quarterId] = {
+        ...q,
+        [key]: items
+      };
+      return {
+        ...prev,
+        [subjectId]: subj
+      };
+    });
+  }
+  function removeGradeItem(subjectId, quarterId, key, idx) {
+    setGrades(prev => {
+      const subj = {
+        ...(prev[subjectId] || {})
+      };
+      const q = {
+        ...(subj[quarterId] || {
+          mode: "final"
+        })
+      };
+      const items = (q[key] || []).filter((_, i) => i !== idx);
+      subj[quarterId] = {
+        ...q,
+        [key]: items
+      };
+      return {
+        ...prev,
+        [subjectId]: subj
+      };
+    });
+  }
+  function updateGradeItem(subjectId, quarterId, key, idx, field, value) {
+    setGrades(prev => {
+      const subj = {
+        ...(prev[subjectId] || {})
+      };
+      const q = {
+        ...(subj[quarterId] || {
+          mode: "final"
+        })
+      };
+      const items = [...(q[key] || [])];
+      while (items.length <= idx) items.push({
+        score: "",
+        total: defaultTotalFor(key)
+      });
+      items[idx] = {
+        ...items[idx],
+        [field]: value
+      };
+      subj[quarterId] = {
+        ...q,
+        [key]: items
+      };
+      return {
+        ...prev,
+        [subjectId]: subj
+      };
+    });
+  }
+  function setSubjectWeight(subjectId, key, value) {
+    setGradeConfig(prev => ({
+      ...prev,
+      weights: {
+        ...prev.weights,
+        [subjectId]: {
+          ...prev.weights[subjectId],
+          [key]: value
         }
       }
-    }, "\uD83D\uDDD1 Delete Topic"))), rawLesson.homeQuarterId !== quarter.id && /*#__PURE__*/React.createElement("p", {
-      className: "sub"
-    }, "\uD83D\uDCE6 Originally in ", subject.quarters.find(q => q.id === rawLesson.homeQuarterId).num, ", moved to ", quarter.num, "."), (() => {
-      // On desktop, video(s) and notes sit side by side (video sticky) instead of
-      // stacking full-width one after another — keeps the Learn tab from turning
-      // into one very long scroll on a wide screen, while mobile keeps the simple
-      // stacked order.
-      const videoIds = getLessonVideos(lesson).map(youtubeEmbedId).filter(Boolean);
-      const notes = getLessonNotes(lesson);
-      const multiple = notes.length > 1;
-      const videoBlock = videoIds.length > 0 ? /*#__PURE__*/React.createElement("div", {
-        className: "learn-video-col"
-      }, videoIds.map((vid, i) => /*#__PURE__*/React.createElement("div", {
-        className: "video-embed",
-        key: i
-      }, /*#__PURE__*/React.createElement("iframe", {
-        src: "https://www.youtube.com/embed/" + vid,
-        title: lesson.title + " video " + (i + 1),
-        allow: "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture",
-        allowFullScreen: true
-      })))) : null;
-      const notesBlock = /*#__PURE__*/React.createElement("div", {
-        className: "learn-notes-col"
-      }, notes.map((note, i) => note.type === "story" ? /*#__PURE__*/React.createElement(StoryCard, {
-        key: note.id || i,
-        note: note,
-        index: i + 1
-      }) : multiple ? /*#__PURE__*/React.createElement("div", {
-        className: "note-card",
-        key: note.id || i
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "note-card-head"
-      }, "\uD83D\uDCDD ", note.name && note.name.trim() ? note.name.trim() : "Note " + (i + 1)), /*#__PURE__*/React.createElement("div", {
-        className: "note-view",
-        dangerouslySetInnerHTML: {
-          __html: note.html
-        }
-      })) : /*#__PURE__*/React.createElement("div", {
-        className: "note-view",
-        key: note.id || i,
-        dangerouslySetInnerHTML: {
-          __html: note.html
-        }
-      })));
-      return videoBlock ? /*#__PURE__*/React.createElement("div", {
-        className: "learn-layout"
-      }, videoBlock, notesBlock) : notesBlock;
-    })(), /*#__PURE__*/React.createElement("div", {
-      className: "learn-footer"
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-primary",
-      style: {
-        background: quarter.color
-      },
-      onClick: () => {
-        markLearned(lesson.id);
-        setTab("quiz");
+    }));
+  }
+  function setHonorThreshold(key, value) {
+    setGradeConfig(prev => ({
+      ...prev,
+      honors: {
+        ...prev.honors,
+        [key]: value
       }
-    }, rec && rec.learned ? "Reviewed — Take Quiz →" : "Mark as Learned & Take Quiz →")))), tab === "quiz" && (quizSession && quizSession.kind === "lesson" && quizSession.key === lesson.id ? quizSession.finalAnswers ? /*#__PURE__*/React.createElement(ResultsView, {
-      answers: quizSession.finalAnswers,
+    }));
+  }
+  function resetGradeConfig() {
+    setGradeConfig(defaultGradeConfig());
+  }
+  function adjustSubjectFinal(subjectId, delta) {
+    setGrades(prev => {
+      const subj = {
+        ...(prev[subjectId] || {})
+      };
+      subj.adjust = (Number(subj.adjust) || 0) + delta;
+      return {
+        ...prev,
+        [subjectId]: subj
+      };
+    });
+  }
+  const lastQuizQuestionsRef = useRef({}); // key -> question texts used last time, so "play again" avoids repeats
+  function goSubjects() {
+    Sound.back();
+    setNav({
+      screen: "subjects"
+    });
+    setQuizSession(null);
+  }
+  function goSubjectHome(sid) {
+    Sound.nav();
+    setNav({
+      screen: "home",
+      subjectId: sid
+    });
+    setQuizSession(null);
+  }
+  function goGeneral(sid) {
+    Sound.nav();
+    setNav({
+      screen: "general",
+      subjectId: sid
+    });
+    setQuizSession(null);
+  }
+  function goTyping() {
+    Sound.nav();
+    setNav({
+      screen: "typing"
+    });
+    setQuizSession(null);
+  }
+  function toggleGeneralWord(catId, word) {
+    Sound.nav();
+    setGeneralKnown(prev => {
+      const key = catId + "::" + word;
+      const next = {
+        ...prev
+      };
+      if (next[key]) delete next[key];else next[key] = true;
+      return next;
+    });
+  }
+  function goQuarter(sid, qid) {
+    Sound.nav();
+    setNav({
+      screen: "quarter",
+      subjectId: sid,
+      quarterId: qid
+    });
+    setQuizSession(null);
+  }
+  function goLesson(sid, qid, lid, startEdit) {
+    Sound.nav();
+    setNav({
+      screen: "lesson",
+      subjectId: sid,
+      quarterId: qid,
+      lessonId: lid,
+      tab: "learn",
+      startEdit: !!startEdit
+    });
+    setQuizSession(null);
+  }
+  function markLearned(lessonId) {
+    Sound.unlock();
+    const wasLearned = !!(progress.lessons[lessonId] && progress.lessons[lessonId].learned);
+    setProgress(prev => {
+      const next = {
+        ...prev,
+        lessons: {
+          ...prev.lessons
+        }
+      };
+      const rec = next.lessons[lessonId] || {};
+      next.lessons[lessonId] = {
+        ...rec,
+        learned: true
+      };
+      return next;
+    });
+    logLessonLearned(lessonId);
+  }
+  function startLessonQuiz(quarter, lesson, count, topics, qType) {
+    Sound.nav();
+    let pool = filterByTopics(getQuestions(lesson.id), topics);
+    pool = filterByType(pool, qType);
+    const n = Math.max(1, Math.min(count || pool.length, pool.length));
+    const avoid = new Set(lastQuizQuestionsRef.current[lesson.id] || []);
+    const chosen = pickAvoidingRepeats(pool, n, avoid);
+    lastQuizQuestionsRef.current[lesson.id] = chosen.map(q => q.q);
+    setQuizSession({
+      kind: "lesson",
+      key: lesson.id,
       accent: quarter.color,
       title: lesson.title,
-      onRetry: () => startLessonQuiz(quarter, lesson, quizCount, quizTopics, quizType),
-      onDone: () => {
-        setQuizSession(null);
-      }
-    }) : /*#__PURE__*/React.createElement(QuizRunner, {
-      questions: quizSession.questions,
-      accent: quarter.color,
-      onFinish: handleQuizFinish,
-      onStop: () => {
-        setQuizSession(null);
-      },
-      showStopInline: false
-    }) : /*#__PURE__*/React.createElement("div", {
-      className: "quiz-card",
-      style: {
-        textAlign: "center"
-      }
-    }, qBank.length === 0 ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
-      style: {
-        marginTop: 0
-      }
-    }, "No questions yet for ", /*#__PURE__*/React.createElement("strong", null, lesson.title), "."), /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-primary",
-      style: {
-        background: quarter.color
-      },
-      onClick: () => setTab("manage")
-    }, "\u2795 Add Questions")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
-      style: {
-        marginTop: 0
-      }
-    }, "Ready to test what you learned about ", /*#__PURE__*/React.createElement("strong", null, lesson.title), "?"), availTopics.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
-      className: "field-label"
-    }, "Which topic(s)?"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        maxWidth: 320,
-        margin: "0 auto 14px"
-      }
-    }, /*#__PURE__*/React.createElement(TopicPicker, {
-      topics: availTopicsWithCounts,
-      totalCount: qBank.length,
-      selected: quizTopics,
-      onToggle: t => toggleTopicSelection(quizTopics, t, setQuizTopics)
-    }))), /*#__PURE__*/React.createElement("label", {
-      className: "field-label"
-    }, "Question type?"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        maxWidth: 320,
-        margin: "0 auto 14px"
-      }
-    }, /*#__PURE__*/React.createElement(QuizTypePicker, {
-      pool: topicFilteredBank,
-      selected: quizType,
-      onSelect: setQuizType
-    })), filteredBank.length === 0 ? /*#__PURE__*/React.createElement("p", {
-      className: "sub"
-    }, "No questions of this type for this topic yet.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
-      className: "field-label"
-    }, "How many questions would you like to take? (1\u2013", filteredBank.length, ")"), /*#__PURE__*/React.createElement("input", {
-      type: "number",
-      className: "text-input",
-      style: {
-        maxWidth: 120,
-        margin: "0 auto 14px"
-      },
-      min: 1,
-      max: filteredBank.length,
-      value: quizCount,
-      onChange: e => {
-        const raw = e.target.value;
-        if (raw === "") {
-          setQuizCount("");
-          return;
-        }
-        const v = parseInt(raw, 10);
-        if (Number.isNaN(v)) return;
-        setQuizCount(Math.max(1, Math.min(v, filteredBank.length)));
-      },
-      onBlur: () => {
-        if (quizCount === "" || Number.isNaN(quizCount)) setQuizCount(1);
-      }
-    }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-primary",
-      style: {
-        background: quarter.color
-      },
-      onClick: () => startLessonQuiz(quarter, lesson, quizCount, quizTopics, quizType)
-    }, rec && rec.best ? "Retake Quiz" : "Start Quiz")))))), tab === "manage" && /*#__PURE__*/React.createElement(QuestionBankManager, {
-      lessonId: lesson.id,
-      questions: qBank,
-      accent: quarter.color,
-      onChange: next => setLessonQuestions(lesson.id, next)
-    })));
+      questions: chosen
+    });
   }
-
-  /* ---------------- LONG QUIZ SCREEN (uses quizSession set at quarter level) ---------------- */
-  function LongQuizScreen() {
+  function startLongQuiz(quarter, count, topics, qType) {
+    Sound.nav();
     const subject = currentSubject();
-    const quarter = subject.quarters.find(q => q.id === nav.quarterId);
-    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "backbar"
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "backbtn",
-      onClick: () => goQuarter(subject.id, quarter.id)
-    }, "\u2190"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      className: "qnum",
-      style: {
-        color: quarter.color
-      }
-    }, subject.shortName, " \xB7 ", quarter.num, " \xB7 Long Quiz"), /*#__PURE__*/React.createElement("h1", {
-      style: {
-        margin: 0,
-        fontSize: "20px"
-      }
-    }, "\uD83C\uDFC6 ", quarter.title))), quizSession.finalAnswers ? /*#__PURE__*/React.createElement(ResultsView, {
-      answers: quizSession.finalAnswers,
+    const lessons = quarterLessons(subject, quarter, moves, customLessons);
+    let pool = lessons.flatMap(l => getQuestions(l.id).map(q => ({
+      ...q,
+      tag: mergeLesson(l, edits).title
+    })));
+    pool = filterByTopics(pool, topics);
+    pool = filterByType(pool, qType);
+    const n = Math.max(1, Math.min(count || pool.length, pool.length));
+    const avoid = new Set(lastQuizQuestionsRef.current[quarter.id] || []);
+    const chosen = pickAvoidingRepeats(pool, n, avoid);
+    lastQuizQuestionsRef.current[quarter.id] = chosen.map(q => q.q);
+    setQuizSession({
+      kind: "long",
+      key: quarter.id,
       accent: quarter.color,
       title: quarter.title + " Long Quiz",
-      onRetry: () => startLongQuiz(quarter),
-      onDone: () => {
-        setQuizSession(null);
-        goQuarter(subject.id, quarter.id);
+      questions: chosen
+    });
+  }
+  function handleQuizFinish(answers) {
+    const correct = answers.filter(a => a.isCorrect).length;
+    const total = answers.length;
+    const ratio = total ? correct / total : 0;
+    const passed = ratio >= 0.7;
+    const bucket = quizSession.kind === "lesson" ? progress.lessons : progress.longQuiz;
+    const prevRec = bucket[quizSession.key];
+    const prevRatio = prevRec && prevRec.best ? prevRec.best.correct / prevRec.best.total : -1;
+    const prevPassed = prevRatio >= 0.7;
+    const isNewBest = ratio > prevRatio;
+    setProgress(prev => {
+      const next = {
+        ...prev
+      };
+      if (quizSession.kind === "lesson") {
+        next.lessons = {
+          ...prev.lessons
+        };
+        const rec = next.lessons[quizSession.key] || {};
+        const best = rec.best && rec.best.correct / rec.best.total >= correct / total ? rec.best : {
+          correct,
+          total
+        };
+        next.lessons[quizSession.key] = {
+          ...rec,
+          best,
+          last: {
+            correct,
+            total
+          }
+        };
+      } else {
+        next.longQuiz = {
+          ...prev.longQuiz
+        };
+        const rec = next.longQuiz[quizSession.key] || {};
+        const best = rec.best && rec.best.correct / rec.best.total >= correct / total ? rec.best : {
+          correct,
+          total
+        };
+        next.longQuiz[quizSession.key] = {
+          ...rec,
+          best,
+          last: {
+            correct,
+            total
+          }
+        };
       }
-    }) : /*#__PURE__*/React.createElement(QuizRunner, {
-      questions: quizSession.questions,
-      accent: quarter.color,
-      onFinish: handleQuizFinish,
-      onStop: () => {
-        setQuizSession(null);
-        goQuarter(subject.id, quarter.id);
-      }
+      return next;
+    });
+    logQuestionsAnswered(total);
+    setQuizSession(sess => ({
+      ...sess,
+      finalAnswers: answers
     }));
   }
+
+  /* ---------------- helpers across a whole subject ---------------- */
+  function subjectLessonCount(subject) {
+    return allSubjectLessons(subject, customLessons).length;
+  }
+  function subjectLearnedCount(subject, progress) {
+    return allSubjectLessons(subject, customLessons).filter(l => progress.lessons[l.id] && progress.lessons[l.id].learned).length;
+  }
+
+  /* ---------------- DASHBOARD SCREEN (app home) ---------------- */
+  
+
+  /* ---------------- NOTES SCREEN ---------------- */
+  
+
+  /* ---------------- TYPING GALAXY SCREEN (dark-mode bonus game) ---------------- */
+  
+
+  /* ---------------- GRADES SCREEN ---------------- */
+  
+
+  /* ---------------- SUBJECTS SCREEN (top-level home) ---------------- */
+  
+
+  /* ---------------- GENERAL SCREEN (Grade 3 Readiness Word List — reference, not lessons/quiz) ---------------- */
+  
+
+  /* ---------------- SUBJECT HOME SCREEN (choose a quarter) ---------------- */
+  
+
+  /* ---------------- QUARTER SCREEN ---------------- */
+  
+
+  /* ---------------- LESSON SCREEN ---------------- */
+  
+
+  /* ---------------- LONG QUIZ SCREEN (uses quizSession set at quarter level) ---------------- */
+  
   let content;
   if (quizSession && quizSession.kind === "long") {
-    content = /*#__PURE__*/React.createElement(LongQuizScreen, null);
+    content = /*#__PURE__*/React.createElement(LongQuizScreen, {
+      currentSubject,
+      goQuarter,
+      handleQuizFinish,
+      nav,
+      quizSession,
+      setQuizSession,
+      startLongQuiz
+    });
   } else if (nav.screen === "quarter") {
-    content = /*#__PURE__*/React.createElement(QuarterScreen, null);
+    content = /*#__PURE__*/React.createElement(QuarterScreen, {
+      addCustomTopic,
+      currentSubject,
+      customLessons,
+      edits,
+      getQuestions,
+      goLesson,
+      goSubjectHome,
+      moves,
+      nav,
+      progress,
+      removeCustomTopic,
+      setLessonQuestions,
+      startLongQuiz
+    });
   } else if (nav.screen === "lesson") {
-    content = /*#__PURE__*/React.createElement(LessonScreen, null);
+    content = /*#__PURE__*/React.createElement(LessonScreen, {
+      currentSubject,
+      customLessons,
+      edits,
+      getQuestions,
+      goQuarter,
+      handleQuizFinish,
+      markLearned,
+      moveLesson,
+      nav,
+      progress,
+      quizSession,
+      removeCustomTopic,
+      saveLessonEdit,
+      setLessonQuestions,
+      setNav,
+      setQuizSession,
+      startLessonQuiz
+    });
   } else if (nav.screen === "home") {
-    content = /*#__PURE__*/React.createElement(SubjectHomeScreen, null);
+    content = /*#__PURE__*/React.createElement(SubjectHomeScreen, {
+      currentSubject,
+      customLessons,
+      goDashboard,
+      goQuarter,
+      moves,
+      progress
+    });
   } else if (nav.screen === "general") {
-    content = /*#__PURE__*/React.createElement(GeneralScreen, null);
+    content = /*#__PURE__*/React.createElement(GeneralScreen, {
+      currentSubject,
+      generalKnown,
+      goDashboard,
+      toggleGeneralWord
+    });
   } else if (nav.screen === "notes") {
-    content = /*#__PURE__*/React.createElement(NotesScreen, null);
+    content = /*#__PURE__*/React.createElement(NotesScreen, {
+      addNote,
+      deleteNote,
+      goDashboard,
+      notes
+    });
   } else if (nav.screen === "typing") {
-    content = /*#__PURE__*/React.createElement(TypingGalaxyScreen, null);
+    content = /*#__PURE__*/React.createElement(TypingGalaxyScreen, {
+      goDashboard
+    });
   } else if (nav.screen === "grades") {
-    content = /*#__PURE__*/React.createElement(GradesScreen, null);
+    content = /*#__PURE__*/React.createElement(GradesScreen, {
+      addGradeItem,
+      adjustSubjectFinal,
+      clearGradeFinalOverride,
+      goDashboard,
+      gradeConfig,
+      grades,
+      openSubject,
+      removeGradeItem,
+      resetGradeConfig,
+      selectedQuarter,
+      setGradeEntry,
+      setHonorThreshold,
+      setOpenSubject,
+      setSelectedQuarter,
+      setShowGradeSettings,
+      setSubjectWeight,
+      showGradeSettings,
+      updateGradeItem
+    });
   } else if (nav.screen === "subjects") {
-    content = /*#__PURE__*/React.createElement(SubjectsScreen, null);
+    content = /*#__PURE__*/React.createElement(SubjectsScreen, {
+      generalKnown,
+      goGeneral,
+      goSubjectHome,
+      goTyping,
+      progress,
+      settings,
+      subjectLearnedCount,
+      subjectLessonCount
+    });
   } else {
-    content = /*#__PURE__*/React.createElement(DashboardScreen, null);
+    content = /*#__PURE__*/React.createElement(DashboardScreen, {
+      customLessons,
+      generalKnown,
+      goGeneral,
+      goSubjectHome,
+      goTyping,
+      progress,
+      settings,
+      subjectLearnedCount,
+      subjectLessonCount,
+      updateSettings
+    });
   }
   const headerIcon = nav.subjectId ? currentSubject() ? currentSubject().icon : "🎓" : "🎓";
   const headerLabel = nav.subjectId && currentSubject() ? currentSubject().name : "Grade 2";
