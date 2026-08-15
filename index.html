@@ -1269,6 +1269,18 @@
   .grade-add-btn{border:2px dashed var(--line);background:transparent;color:var(--ink-soft);border-radius:10px;padding:6px 12px;font-weight:700;font-size:12.5px;font-family:'Fredoka';cursor:pointer;}
   .grade-add-btn:hover{border-color:var(--night);color:var(--night);}
   .grade-remove-btn{border:none;background:transparent;color:var(--bad);font-size:16px;cursor:pointer;padding:0 6px;line-height:1;}
+
+  .mt-level-block{margin-bottom:18px;}
+  .mt-level-head{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--line);}
+  .mt-problem-row{display:flex;gap:10px;align-items:baseline;font-family:'Space Mono',monospace;font-size:14.5px;padding:5px 0;border-bottom:1px dashed var(--line);}
+  .mt-problem-num{color:var(--ink-soft);font-weight:700;min-width:20px;}
+  .mt-problem-answer{margin-left:auto;font-weight:800;color:#2E9E5B;}
+  @media print{
+    body *{visibility:hidden;}
+    .mt-print-area, .mt-print-area *{visibility:visible;}
+    .mt-print-area{position:absolute;left:0;top:0;width:100%;}
+    .no-print{display:none !important;}
+  }
 </style>
 </head>
 <body>
@@ -2555,6 +2567,503 @@ function saveGeneralKnown(g) {
 }
 
 /* =========================================================
+   MATH TINIK — a numbered arcade drill under General Knowledge.
+   Ten numbered sets (1-10), each containing the same 8 fixed
+   levels, calibrated to Grade 2 math (2- and 3-digit addition &
+   subtraction with/without regrouping, basic multiplication and
+   division facts). Each level is 5 freshly-generated problems
+   every time it's played, so a set never runs out of variety.
+   ========================================================= */
+const MATH_TINIK_SET_COUNT = 10;
+const MATH_TINIK_LEVELS = [{
+  id: 1,
+  title: "2-Digit Addition",
+  short: "2-digit + 2-digit, no regrouping",
+  icon: "➕"
+}, {
+  id: 2,
+  title: "2-Digit Addition — With Regrouping",
+  short: "2-digit + 2-digit, carries to the tens",
+  icon: "➕"
+}, {
+  id: 3,
+  title: "3-Digit Addition — With Regrouping",
+  short: "3-digit + 3-digit, sum up to 999",
+  icon: "➕"
+}, {
+  id: 4,
+  title: "2-Digit Subtraction",
+  short: "2-digit − 2-digit, no regrouping",
+  icon: "➖"
+}, {
+  id: 5,
+  title: "2-Digit Subtraction — With Regrouping",
+  short: "2-digit − 2-digit, borrows from the tens",
+  icon: "➖"
+}, {
+  id: 6,
+  title: "3-Digit Subtraction — With Regrouping",
+  short: "3-digit − 3-digit, borrows from the tens",
+  icon: "➖"
+}, {
+  id: 7,
+  title: "Multiplication Facts",
+  short: "1 to 10 times table",
+  icon: "✖️"
+}, {
+  id: 8,
+  title: "Division Facts",
+  short: "basic facts, exact (no remainder)",
+  icon: "➗"
+}];
+function mtRandInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+// Level 1: 2-digit + 2-digit, NO regrouping (ones sum < 10, tens sum < 10).
+function mtGenAdd2NoRegroup() {
+  let a, b;
+  do {
+    a = mtRandInt(10, 89);
+    b = mtRandInt(10, 89);
+  } while (a % 10 + b % 10 >= 10 || Math.floor(a / 10) + Math.floor(b / 10) >= 10);
+  return {
+    text: `${a} + ${b}`,
+    answer: a + b
+  };
+}
+// Level 2: 2-digit + 2-digit, forced to regroup (ones digits sum to 10+).
+function mtGenAdd2Regroup() {
+  let a, b;
+  do {
+    a = mtRandInt(10, 89);
+    b = mtRandInt(10, 89);
+  } while (a % 10 + b % 10 < 10);
+  return {
+    text: `${a} + ${b}`,
+    answer: a + b
+  };
+}
+// Level 3: 3-digit + 3-digit, forced to regroup, sum kept under 1000.
+function mtGenAdd3Regroup() {
+  let a, b;
+  do {
+    a = mtRandInt(100, 799);
+    b = mtRandInt(100, 799);
+  } while (a % 10 + b % 10 < 10 || a + b > 999);
+  return {
+    text: `${a} + ${b}`,
+    answer: a + b
+  };
+}
+// Level 4: 2-digit − 2-digit, NO regrouping (each digit of the top number
+// is at least as big as the matching digit of the bottom number).
+function mtGenSub2NoRegroup() {
+  let a, b;
+  do {
+    a = mtRandInt(10, 99);
+    b = mtRandInt(10, a);
+  } while (a % 10 < b % 10);
+  return {
+    text: `${a} − ${b}`,
+    answer: a - b
+  };
+}
+// Level 5: 2-digit − 2-digit, forced to borrow (ones digit of top < ones digit of bottom).
+function mtGenSub2Regroup() {
+  let a, b;
+  do {
+    a = mtRandInt(20, 99);
+    b = mtRandInt(10, a);
+  } while (a % 10 >= b % 10);
+  return {
+    text: `${a} − ${b}`,
+    answer: a - b
+  };
+}
+// Level 6: 3-digit − 3-digit, forced to borrow, minuend kept under 1000.
+function mtGenSub3Regroup() {
+  let a, b;
+  do {
+    a = mtRandInt(200, 999);
+    b = mtRandInt(100, a - 1);
+  } while (a % 10 >= b % 10);
+  return {
+    text: `${a} − ${b}`,
+    answer: a - b
+  };
+}
+// Level 7: basic multiplication facts, 1-10 times table.
+function mtGenMulFacts() {
+  const a = mtRandInt(1, 10);
+  const b = mtRandInt(1, 10);
+  return {
+    text: `${a} × ${b}`,
+    answer: a * b
+  };
+}
+// Level 8: basic division facts, always exact (no remainder), tied to the
+// same 1-10 times table used in Level 7.
+function mtGenDivFacts() {
+  const divisor = mtRandInt(1, 10);
+  const quotient = mtRandInt(1, 10);
+  const dividend = divisor * quotient;
+  return {
+    text: `${dividend} ÷ ${divisor}`,
+    answer: quotient
+  };
+}
+// Builds a fresh set of 5 problems for a given level id (1-8).
+function mtGenerateProblems(levelId) {
+  const out = [];
+  for (let i = 0; i < 5; i++) {
+    let p;
+    if (levelId === 1) p = mtGenAdd2NoRegroup();else if (levelId === 2) p = mtGenAdd2Regroup();else if (levelId === 3) p = mtGenAdd3Regroup();else if (levelId === 4) p = mtGenSub2NoRegroup();else if (levelId === 5) p = mtGenSub2Regroup();else if (levelId === 6) p = mtGenSub3Regroup();else if (levelId === 7) p = mtGenMulFacts();else p = mtGenDivFacts();
+    out.push(p);
+  }
+  return out;
+}
+// Builds all 10 sets × 8 levels of problems at once — this is the actual
+// "worksheet" content: { [setId 1-10]: { [levelId 1-8]: [5 problems] } }.
+// Regenerating just re-runs this (no server/API involved — the numbers are
+// generated locally), swapping in a brand new batch of numbers while keeping
+// every level's rules (regrouping, exact division, etc.) exactly the same.
+function mtGenerateAllSets() {
+  const sets = {};
+  for (let setId = 1; setId <= MATH_TINIK_SET_COUNT; setId++) {
+    const byLevel = {};
+    MATH_TINIK_LEVELS.forEach(l => {
+      byLevel[l.id] = mtGenerateProblems(l.id);
+    });
+    sets[setId] = byLevel;
+  }
+  return sets;
+}
+const STORAGE_KEY_MATH_TINIK_PROBLEMS = "gs2_math_tinik_problems_v1";
+function loadMathTinikProblems() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_MATH_TINIK_PROBLEMS);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+}
+function saveMathTinikProblems(m) {
+  try {
+    localStorage.setItem(STORAGE_KEY_MATH_TINIK_PROBLEMS, JSON.stringify(m));
+  } catch (e) {}
+  queueCloudSync();
+}
+/* =========================================================
+   TIME TINIK — same numbered-set/leveled-worksheet shape as Math
+   Tinik, but every problem is a clock-time add/subtract instead of
+   a number fact. All times are 12-hour clock (e.g. "11:00 AM"), and
+   arithmetic is done in minutes-since-midnight (0-1439) internally
+   so carries/borrows fall out naturally, then converted back to
+   12-hour display. Kept to simple minutes-only addition/subtraction
+   within the same hour period — Grade 2 telling-time level, without
+   the multi-hour durations or AM/PM crossings that belong to later
+   grades. Ten sets, 4 fixed levels, 5 fresh problems per level every
+   time it's played.
+   ========================================================= */
+const TIME_TINIK_SET_COUNT = 10;
+const TIME_TINIK_LEVELS = [{
+  id: 1,
+  title: "Adding Minutes",
+  short: "no carry past the hour",
+  icon: "🕐"
+}, {
+  id: 2,
+  title: "Adding Minutes — With Carry",
+  short: "carries into the next hour",
+  icon: "🕑"
+}, {
+  id: 3,
+  title: "Subtracting Minutes",
+  short: "no borrowing",
+  icon: "🕔"
+}, {
+  id: 4,
+  title: "Subtracting Minutes — With Borrowing",
+  short: "borrows from the hour",
+  icon: "🕕"
+}];
+function ttPad2(n) {
+  return String(n).padStart(2, "0");
+}
+// Converts minutes-since-midnight (any integer, including negative or
+// past 1439 — it wraps) into a "H:MM AM/PM" 12-hour display string.
+function ttFormatTime12(totalMinutes) {
+  const m = ((totalMinutes % 1440) + 1440) % 1440;
+  const h24 = Math.floor(m / 60);
+  const mm = m % 60;
+  const period = h24 < 12 ? "AM" : "PM";
+  let h12 = h24 % 12;
+  if (h12 === 0) h12 = 12;
+  return `${h12}:${ttPad2(mm)} ${period}`;
+}
+// Which "half" of the day (0 = 12:00AM-11:59AM, 1 = 12:00PM-11:59PM) a
+// minutes-since-midnight value falls in — used to detect an AM/PM crossing.
+function ttHalf(totalMinutes) {
+  const m = ((totalMinutes % 1440) + 1440) % 1440;
+  return Math.floor(m / 720);
+}
+// Level 1: add minutes only, no carry past the hour (e.g. 9:10 AM + 0:25).
+function ttGenAddMinNoCarry() {
+  let start, addMin;
+  do {
+    start = mtRandInt(0, 1439);
+    addMin = mtRandInt(1, 45);
+  } while (start % 60 + addMin >= 60);
+  return {
+    text: `${ttFormatTime12(start)} + 0:${ttPad2(addMin)}`,
+    answer: ttFormatTime12(start + addMin)
+  };
+}
+// Level 2: add minutes, forced to carry past the hour (e.g. 9:45 AM + 0:30).
+function ttGenAddMinCarry() {
+  let start, addMin;
+  do {
+    start = mtRandInt(0, 1439);
+    addMin = mtRandInt(1, 45);
+  } while (start % 60 + addMin < 60);
+  return {
+    text: `${ttFormatTime12(start)} + 0:${ttPad2(addMin)}`,
+    answer: ttFormatTime12(start + addMin)
+  };
+}
+// Level 3: subtract minutes only, no borrowing (e.g. 9:45 AM − 0:20).
+function ttGenSubMinNoBorrow() {
+  let start, subMin;
+  do {
+    start = mtRandInt(0, 1439);
+    subMin = mtRandInt(1, 45);
+  } while (start % 60 < subMin);
+  return {
+    text: `${ttFormatTime12(start)} − 0:${ttPad2(subMin)}`,
+    answer: ttFormatTime12(start - subMin)
+  };
+}
+// Level 4: subtract minutes, forced to borrow from the hour, kept away from
+// the 12 AM/12 PM boundary so it borrows without also crossing AM/PM.
+function ttGenSubMinBorrow() {
+  let start, subMin;
+  do {
+    start = mtRandInt(0, 1439);
+    subMin = mtRandInt(1, 45);
+  } while (start % 60 >= subMin || Math.floor(start / 60) % 12 === 0);
+  return {
+    text: `${ttFormatTime12(start)} − 0:${ttPad2(subMin)}`,
+    answer: ttFormatTime12(start - subMin)
+  };
+}
+// Builds a fresh set of 5 problems for a given Time Tinik level id (1-4).
+function ttGenerateProblems(levelId) {
+  const out = [];
+  for (let i = 0; i < 5; i++) {
+    let p;
+    if (levelId === 1) p = ttGenAddMinNoCarry();else if (levelId === 2) p = ttGenAddMinCarry();else if (levelId === 3) p = ttGenSubMinNoBorrow();else p = ttGenSubMinBorrow();
+    out.push(p);
+  }
+  return out;
+}
+// Builds all 10 sets × 4 levels of Time Tinik problems at once.
+function ttGenerateAllSets() {
+  const sets = {};
+  for (let setId = 1; setId <= TIME_TINIK_SET_COUNT; setId++) {
+    const byLevel = {};
+    TIME_TINIK_LEVELS.forEach(l => {
+      byLevel[l.id] = ttGenerateProblems(l.id);
+    });
+    sets[setId] = byLevel;
+  }
+  return sets;
+}
+const STORAGE_KEY_TIME_TINIK_PROBLEMS = "gs2_time_tinik_problems_v1";
+function loadTimeTinikProblems() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_TIME_TINIK_PROBLEMS);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+}
+function saveTimeTinikProblems(m) {
+  try {
+    localStorage.setItem(STORAGE_KEY_TIME_TINIK_PROBLEMS, JSON.stringify(m));
+  } catch (e) {}
+  queueCloudSync();
+}
+/* =========================================================
+   FRACTION TINIK — same numbered-set/leveled-worksheet shape as
+   Math Tinik and Time Tinik. Ten sets, 3 fixed levels, 5 fresh
+   problems per level every time it's played. Kept to Grade 2
+   fraction concepts — identifying halves/thirds/fourths and
+   comparing them by reasoning about the pictured parts, not the
+   cross-multiplication or operations (add/sub/mul/div) that
+   belong to later grades. Answers are fraction strings ("3/4")
+   or a comparison symbol ("<", ">", "=") depending on the level.
+   ========================================================= */
+const FRACTION_TINIK_SET_COUNT = 10;
+const FRACTION_TINIK_LEVELS = [{
+  id: 1,
+  title: "Identify the Fraction",
+  short: "how many parts out of the whole",
+  icon: "🍕"
+}, {
+  id: 2,
+  title: "Compare Fractions — Like Denominators",
+  short: "<, >, or =",
+  icon: "⚖️"
+}, {
+  id: 3,
+  title: "Compare Unit Fractions",
+  short: "1/2, 1/3, 1/4 ... which piece is bigger?",
+  icon: "⚖️"
+}];
+function ftGcd(a, b) {
+  a = Math.abs(a);
+  b = Math.abs(b);
+  while (b) {
+    [a, b] = [b, a % b];
+  }
+  return a || 1;
+}
+// Level 1: shade n of d equal parts (halves, thirds, fourths only) — name the fraction.
+function ftGenIdentify() {
+  const d = mtRandInt(2, 4);
+  const n = mtRandInt(1, d - 1);
+  return {
+    text: `${n} out of ${d} equal parts are shaded. What fraction is shown?`,
+    answer: `${n}/${d}`
+  };
+}
+// Level 2: two fractions sharing a denominator (halves, thirds, or fourths) — compare numerators directly.
+function ftGenCompareLike() {
+  const d = mtRandInt(2, 4);
+  const n1 = mtRandInt(1, d - 1);
+  let n2;
+  if (mtRandInt(1, 6) === 1) {
+    n2 = n1; // occasional equal case
+  } else {
+    do {
+      n2 = mtRandInt(1, d - 1);
+    } while (n2 === n1);
+  }
+  const symbol = n1 < n2 ? "<" : n1 > n2 ? ">" : "=";
+  return {
+    text: `${n1}/${d} ___ ${n2}/${d}`,
+    answer: symbol
+  };
+}
+// Level 3: compare two unit fractions (numerator 1) with different denominators —
+// reasoned directly (the bigger the denominator, the smaller the piece), no
+// cross-multiplication needed.
+function ftGenCompareUnit() {
+  let d1, d2;
+  do {
+    d1 = mtRandInt(2, 8);
+    d2 = mtRandInt(2, 8);
+  } while (d1 === d2);
+  const symbol = d1 < d2 ? ">" : "<";
+  return {
+    text: `1/${d1} ___ 1/${d2}`,
+    answer: symbol
+  };
+}
+// Builds a fresh set of 5 problems for a given Fraction Tinik level id (1-3).
+function ftGenerateProblems(levelId) {
+  const out = [];
+  for (let i = 0; i < 5; i++) {
+    let p;
+    if (levelId === 1) p = ftGenIdentify();else if (levelId === 2) p = ftGenCompareLike();else p = ftGenCompareUnit();
+    out.push(p);
+  }
+  return out;
+}
+// Builds all 10 sets × 3 levels of Fraction Tinik problems at once.
+function ftGenerateAllSets() {
+  const sets = {};
+  for (let setId = 1; setId <= FRACTION_TINIK_SET_COUNT; setId++) {
+    const byLevel = {};
+    FRACTION_TINIK_LEVELS.forEach(l => {
+      byLevel[l.id] = ftGenerateProblems(l.id);
+    });
+    sets[setId] = byLevel;
+  }
+  return sets;
+}
+const STORAGE_KEY_FRACTION_TINIK_PROBLEMS = "gs2_fraction_tinik_problems_v1";
+function loadFractionTinikProblems() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_FRACTION_TINIK_PROBLEMS);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+}
+function saveFractionTinikProblems(m) {
+  try {
+    localStorage.setItem(STORAGE_KEY_FRACTION_TINIK_PROBLEMS, JSON.stringify(m));
+  } catch (e) {}
+  queueCloudSync();
+}
+
+/* =========================================================
+   SPELLING — a small, fixed practice sheet under Questions
+   (separate from the General Knowledge spelling checklist).
+   Exactly 3 levels, 3 words each. Level 1 is deliberately easy
+   (shapes/colors/everyday words any Grade 2 student should
+   already spell), building up to Level 3, which is still ordinary
+   Grade 2 vocabulary — never as advanced as the General "English
+   Spelling Words" reference list (e.g. "beautiful", "different",
+   "favorite"). Words are fixed, not randomly generated, since this
+   is a curated list rather than a number-fact drill.
+   ========================================================= */
+const SPELLING_LEVELS = [{
+  id: 1,
+  title: "Easy Words",
+  short: "colors, shapes & everyday words",
+  icon: "🔤",
+  words: [{
+    word: "red",
+    clue: "a color, like a fire truck"
+  }, {
+    word: "cat",
+    clue: "a pet that says meow"
+  }, {
+    word: "sun",
+    clue: "shines bright in the sky at daytime"
+  }]
+}, {
+  id: 2,
+  title: "Medium Words",
+  short: "everyday describing & action words",
+  icon: "✏️",
+  words: [{
+    word: "happy",
+    clue: "feeling glad or joyful"
+  }, {
+    word: "green",
+    clue: "the color of grass"
+  }, {
+    word: "jump",
+    clue: "to hop up in the air"
+  }]
+}, {
+  id: 3,
+  title: "Challenge Words",
+  short: "common Grade 2 spelling words",
+  icon: "📝",
+  words: [{
+    word: "friend",
+    clue: "someone you like to play with"
+  }, {
+    word: "school",
+    clue: "the place where you go to learn"
+  }, {
+    word: "little",
+    clue: "small in size"
+  }]
+}];
+
+/* =========================================================
    SUBJECTS — Grade 2 courses in this app
    ========================================================= */
 /* =========================================================
@@ -2706,6 +3215,16 @@ const SUBJECTS = [{
   color: "var(--subj-g2-gmrc)",
   soft: "#E2E8F0"
 }, {
+  id: "questions",
+  name: "Questions",
+  shortName: "Questions",
+  icon: "❓",
+  tagline: "Question Bank & Practice Sheets",
+  quarters: [],
+  color: "#6B5B95",
+  soft: "#EDE8F5",
+  special: "questions"
+}, {
   id: "stories",
   name: "Story Time",
   shortName: "Stories",
@@ -2818,7 +3337,8 @@ function honorLabel(avg, thresholds) {
 // percentage. Pulled out of componentPct so Final mode can also use it as
 // an auto-computed fallback (see componentPct below).
 function detailedComponentPct(entry, key) {
-  const items = (entry[key] || []).filter(it => it && it.total !== "" && it.total != null && Number(it.total) > 0 && it.score !== "" && it.score != null);
+  const raw = entry[key];
+  const items = (Array.isArray(raw) ? raw : []).filter(it => it && it.total !== "" && it.total != null && Number(it.total) > 0 && it.score !== "" && it.score != null);
   if (!items.length) return null;
   const sumScore = items.reduce((a, it) => a + Number(it.score), 0);
   const sumTotal = items.reduce((a, it) => a + Number(it.total), 0);
@@ -9913,6 +10433,314 @@ function GeneralScreen({
     }, "SACRED HEART ACADEMY OF PASIG \xB7 GRADE SCHOOL DEPARTMENT"));
   }
 
+function QuestionsScreen({
+  goDashboard,
+  goMathTinik,
+  goTimeTinik,
+  goFractionTinik,
+  goSpellingTinik
+}) {
+  const items = [{
+    key: "mathtinik",
+    icon: "🔢",
+    title: "Operation",
+    desc: "10 sets \u00d7 8 levels of Grade 2 addition, subtraction & basic multiplication/division facts",
+    onClick: goMathTinik
+  }, {
+    key: "timetinik",
+    icon: "🕐",
+    title: "Time",
+    desc: "10 sets \u00d7 4 levels of adding & subtracting minutes on the clock",
+    onClick: goTimeTinik
+  }, {
+    key: "fractiontinik",
+    icon: "🍕",
+    title: "Fraction",
+    desc: "10 sets \u00d7 3 levels of identifying & comparing simple fractions",
+    onClick: goFractionTinik
+  }, {
+    key: "spellingtinik",
+    icon: "🔤",
+    title: "Spelling",
+    desc: "3 levels \u00d7 3 words \u2014 easy to a little more challenging",
+    onClick: goSpellingTinik
+  }];
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "backbar"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "backbtn",
+    onClick: goDashboard
+  }, "←"), /*#__PURE__*/React.createElement("div", {
+    className: "icon-badge-sm",
+    style: {
+      background: "#EDE8F5"
+    }
+  }, "❓"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "qnum"
+  }, "Question Bank"), /*#__PURE__*/React.createElement("h1", {
+    style: {
+      margin: 0,
+      fontSize: "21px"
+    }
+  }, "Questions"))), /*#__PURE__*/React.createElement("p", {
+    className: "sub",
+    style: {
+      margin: "0 0 16px"
+    }
+  }, "Practice sheets and question banks live here. More will be added over time."), items.map(it => /*#__PURE__*/React.createElement("button", {
+    key: it.key,
+    onClick: it.onClick,
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      width: "100%",
+      border: "2px solid var(--border, #ddd)",
+      borderRadius: 16,
+      padding: "14px 16px",
+      background: "#EDE8F5",
+      marginBottom: 12,
+      cursor: "pointer",
+      font: "inherit",
+      textAlign: "left"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 28
+    }
+  }, it.icon), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 800,
+      fontSize: 15
+    }
+  }, it.title), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: "var(--ink-soft, #666)"
+    }
+  }, it.desc)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 20
+    }
+  }, "→"))));
+}
+
+// Shared by Math Tinik and Time Tinik — both are numbered-set, leveled
+// worksheet drills with the exact same sets->levels->5 problems shape,
+// differing only in title/icon/levels/problem generator.
+function TinikScreen({
+  title,
+  icon,
+  setCount,
+  levels,
+  problems,
+  regenerateProblems,
+  goBack
+}) {
+  const [view, setView] = useState("sets"); // 'sets' | 'sheet'
+  const [activeSet, setActiveSet] = useState(null);
+  function openSet(setId) {
+    Sound.nav();
+    setActiveSet(setId);
+    setView("sheet");
+  }
+  function backToSets() {
+    Sound.back();
+    setView("sets");
+  }
+  function handleGenerate() {
+    if (!window.confirm(`Generate new numbers for all ${setCount} sets? This replaces the current worksheet numbers for every set.`)) return;
+    Sound.nav();
+    regenerateProblems();
+  }
+  function printSheet() {
+    Sound.tap();
+    window.print();
+  }
+  const headerBack = view === "sets" ? goBack : backToSets;
+  const headerTitle = view === "sets" ? title : `Set ${activeSet}`;
+  const headerBar = /*#__PURE__*/React.createElement("div", {
+    className: "backbar no-print"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "backbtn",
+    onClick: headerBack
+  }, "←"), /*#__PURE__*/React.createElement("div", {
+    className: "icon-badge-sm",
+    style: {
+      background: "#EDE8F5"
+    }
+  }, icon), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "qnum"
+  }, title), /*#__PURE__*/React.createElement("h1", {
+    style: {
+      margin: 0,
+      fontSize: "21px"
+    }
+  }, headerTitle)));
+  let body;
+  if (view === "sets") {
+    const tiles = [];
+    for (let n = 1; n <= setCount; n++) {
+      tiles.push(/*#__PURE__*/React.createElement("button", {
+        key: n,
+        onClick: () => openSet(n),
+        style: {
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "2px solid var(--border, #ddd)",
+          borderRadius: 16,
+          padding: "22px 8px",
+          background: "#fff",
+          cursor: "pointer",
+          font: "inherit"
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 26,
+          fontWeight: 800,
+          fontFamily: "'Space Mono', monospace"
+        }
+      }, n)));
+    }
+    body = /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
+      className: "sub",
+      style: {
+        margin: "0 0 14px"
+      }
+    }, `Pick a set to see all ${levels.length} levels' worth of questions and answers — print it out or copy it onto paper for the student to solve away from the screen.`), /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-primary",
+      style: {
+        width: "100%",
+        marginBottom: 16
+      },
+      onClick: handleGenerate
+    }, `🔄 Generate New Numbers (all ${setCount} sets)`), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "grid",
+        gridTemplateColumns: "repeat(5, 1fr)",
+        gap: 10
+      }
+    }, tiles));
+  } else if (view === "sheet") {
+    const byLevel = problems[activeSet] || {};
+    const levelBlocks = levels.map(l => {
+      const probs = byLevel[l.id] || [];
+      const rows = probs.map((p, i) => /*#__PURE__*/React.createElement("div", {
+        key: i,
+        className: "mt-problem-row"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "mt-problem-num"
+      }, i + 1, "."), /*#__PURE__*/React.createElement("span", null, p.text, " ="), /*#__PURE__*/React.createElement("span", {
+        className: "mt-problem-answer"
+      }, p.answer)));
+      return /*#__PURE__*/React.createElement("div", {
+        key: l.id,
+        className: "mt-level-block"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "mt-level-head"
+      }, /*#__PURE__*/React.createElement("span", null, l.icon), /*#__PURE__*/React.createElement("span", null, "Level ", l.id, ": ", l.title), /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontWeight: 500,
+          fontSize: 12,
+          color: "var(--ink-soft, #666)"
+        }
+      }, "(", l.short, ")")), rows);
+    });
+    body = /*#__PURE__*/React.createElement("div", {
+      className: "mt-print-area"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-ghost no-print",
+      style: {
+        marginBottom: 14
+      },
+      onClick: printSheet
+    }, "🖨️ Print This Sheet"), /*#__PURE__*/React.createElement("h2", {
+      style: {
+        margin: "0 0 4px",
+        fontSize: 20
+      }
+    }, title, " \u2014 Set ", activeSet), /*#__PURE__*/React.createElement("p", {
+      className: "sub",
+      style: {
+        margin: "0 0 16px"
+      }
+    }, `${levels.length} levels \xD7 5 problems each \u2014 answers shown alongside each problem.`), levelBlocks);
+  }
+  return /*#__PURE__*/React.createElement(React.Fragment, null, headerBar, body);
+}
+
+// Spelling practice sheet — 3 fixed levels of 3 words each (see SPELLING_LEVELS).
+// Simpler than TinikScreen: no numbered sets and no "generate new numbers",
+// since these are curated words, not randomly-generated number facts.
+function SpellingTinikScreen({
+  goBack
+}) {
+  function printSheet() {
+    Sound.tap();
+    window.print();
+  }
+  const levelBlocks = SPELLING_LEVELS.map(l => {
+    const rows = l.words.map((w, i) => /*#__PURE__*/React.createElement("div", {
+      key: i,
+      className: "mt-problem-row"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "mt-problem-num"
+    }, i + 1, "."), /*#__PURE__*/React.createElement("span", null, "Spell: ", w.clue, " ="), /*#__PURE__*/React.createElement("span", {
+      className: "mt-problem-answer"
+    }, w.word)));
+    return /*#__PURE__*/React.createElement("div", {
+      key: l.id,
+      className: "mt-level-block"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "mt-level-head"
+    }, /*#__PURE__*/React.createElement("span", null, l.icon), /*#__PURE__*/React.createElement("span", null, "Level ", l.id, ": ", l.title), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 500,
+        fontSize: 12,
+        color: "var(--ink-soft, #666)"
+      }
+    }, "(", l.short, ")")), rows);
+  });
+  const headerBar = /*#__PURE__*/React.createElement("div", {
+    className: "backbar no-print"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "backbtn",
+    onClick: goBack
+  }, "←"), /*#__PURE__*/React.createElement("div", {
+    className: "icon-badge-sm",
+    style: {
+      background: "#EDE8F5"
+    }
+  }, "🔤"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "qnum"
+  }, "Spelling"), /*#__PURE__*/React.createElement("h1", {
+    style: {
+      margin: 0,
+      fontSize: "21px"
+    }
+  }, "Spelling Practice")));
+  const body = /*#__PURE__*/React.createElement("div", {
+    className: "mt-print-area"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-ghost no-print",
+    style: {
+      marginBottom: 14
+    },
+    onClick: printSheet
+  }, "🖨️ Print This Sheet"), /*#__PURE__*/React.createElement("p", {
+    className: "sub",
+    style: {
+      margin: "0 0 16px"
+    }
+  }, "3 levels \u00d7 3 words each \u2014 read the clue, spell the word out loud or on paper, then check the answer."), levelBlocks);
+  return /*#__PURE__*/React.createElement(React.Fragment, null, headerBar, body);
+}
+
 function NotesScreen({
   addNote,
   deleteNote,
@@ -10582,9 +11410,7 @@ function GradesScreen({
             padding: "4px 10px",
             fontSize: "12px"
           },
-          onClick: () => setGradeEntry(s.id, q.id, {
-            mode: "detailed"
-          })
+          onClick: () => switchToDetailedMode(s.id, q.id)
         }, "Detailed"), /*#__PURE__*/React.createElement("div", {
           className: "smeta",
           style: {
@@ -10810,6 +11636,7 @@ function GradesScreen({
 function SubjectsScreen({
   generalKnown,
   goGeneral,
+  goQuestions,
   goSubjectHome,
   goTyping,
   progress,
@@ -10842,6 +11669,21 @@ function SubjectsScreen({
         }, s.shortName), /*#__PURE__*/React.createElement("div", {
           className: "frac"
         }, known, "/", total));
+      }
+      if (s.special === "questions") {
+        return /*#__PURE__*/React.createElement("button", {
+          key: s.id,
+          className: "stamp",
+          onClick: goQuestions
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "icon"
+        }, /*#__PURE__*/React.createElement(SubjectIcon, {
+          icon: s.icon
+        })), /*#__PURE__*/React.createElement("div", {
+          className: "label"
+        }, s.shortName), /*#__PURE__*/React.createElement("div", {
+          className: "frac"
+        }, "OPEN"));
       }
       if (s.special === "game") {
         return /*#__PURE__*/React.createElement("button", {
@@ -10882,6 +11724,7 @@ function DashboardScreen({
   customLessons,
   generalKnown,
   goGeneral,
+  goQuestions,
   goSubjectHome,
   goTyping,
   progress,
@@ -10961,6 +11804,27 @@ function DashboardScreen({
           }
         }, known, "/", total));
       }
+      if (s.special === "questions") {
+        return /*#__PURE__*/React.createElement("button", {
+          key: s.id,
+          className: "subject-square",
+          onClick: goQuestions,
+          style: {
+            animationDelay: si * 0.05 + "s"
+          }
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "sq-icon"
+        }, /*#__PURE__*/React.createElement(SubjectIcon, {
+          icon: s.icon
+        })), /*#__PURE__*/React.createElement("div", {
+          className: "sq-label"
+        }, s.shortName), /*#__PURE__*/React.createElement("div", {
+          className: "sq-frac",
+          style: {
+            color: s.color
+          }
+        }, "OPEN"));
+      }
       if (s.special === "game") {
         return /*#__PURE__*/React.createElement("button", {
           key: s.id,
@@ -11037,6 +11901,18 @@ function App() {
   const [notes, setNotes] = useState(loadNotes());
   const [activity, setActivity] = useState(loadActivity());
   const [generalKnown, setGeneralKnown] = useState(loadGeneralKnown());
+  const [mathTinikProblems, setMathTinikProblems] = useState(() => {
+    const loaded = loadMathTinikProblems();
+    return loaded && Object.keys(loaded).length ? loaded : mtGenerateAllSets();
+  });
+  const [timeTinikProblems, setTimeTinikProblems] = useState(() => {
+    const loaded = loadTimeTinikProblems();
+    return loaded && Object.keys(loaded).length ? loaded : ttGenerateAllSets();
+  });
+  const [fractionTinikProblems, setFractionTinikProblems] = useState(() => {
+    const loaded = loadFractionTinikProblems();
+    return loaded && Object.keys(loaded).length ? loaded : ftGenerateAllSets();
+  });
   const [grades, setGrades] = useState(loadGrades());
   const [gradeConfig, setGradeConfig] = useState(loadGradeConfig());
   const [nav, setNav] = useState({
@@ -11082,6 +11958,15 @@ function App() {
   useEffect(() => {
     saveGeneralKnown(generalKnown);
   }, [generalKnown]);
+  useEffect(() => {
+    saveMathTinikProblems(mathTinikProblems);
+  }, [mathTinikProblems]);
+  useEffect(() => {
+    saveTimeTinikProblems(timeTinikProblems);
+  }, [timeTinikProblems]);
+  useEffect(() => {
+    saveFractionTinikProblems(fractionTinikProblems);
+  }, [fractionTinikProblems]);
   useEffect(() => {
     saveGrades(grades);
   }, [grades]);
@@ -11151,6 +12036,9 @@ function App() {
         notes,
         activity,
         generalKnown,
+        mathTinikProblems,
+        timeTinikProblems,
+        fractionTinikProblems,
         grades,
         gradeConfig
       },
@@ -11192,6 +12080,9 @@ function App() {
         if (d.notes) setNotes(d.notes);
         if (d.activity) setActivity(d.activity);
         if (d.generalKnown) setGeneralKnown(d.generalKnown);
+        if (d.mathTinikProblems) setMathTinikProblems(d.mathTinikProblems);
+        if (d.timeTinikProblems) setTimeTinikProblems(d.timeTinikProblems);
+        if (d.fractionTinikProblems) setFractionTinikProblems(d.fractionTinikProblems);
         if (d.grades) setGrades(d.grades);
         if (d.gradeConfig) setGradeConfig(d.gradeConfig);
         // Persist immediately so a refresh doesn't race the effects.
@@ -11204,6 +12095,9 @@ function App() {
         if (d.notes) saveNotes(d.notes);
         if (d.activity) saveActivity(d.activity);
         if (d.generalKnown) saveGeneralKnown(d.generalKnown);
+        if (d.mathTinikProblems) saveMathTinikProblems(d.mathTinikProblems);
+        if (d.timeTinikProblems) saveTimeTinikProblems(d.timeTinikProblems);
+        if (d.fractionTinikProblems) saveFractionTinikProblems(d.fractionTinikProblems);
         if (d.grades) saveGrades(d.grades);
         if (d.gradeConfig) saveGradeConfig(d.gradeConfig);
         // Restore the IndexedDB offline audio cache, if the backup has one.
@@ -11402,6 +12296,38 @@ function App() {
     if (key === "pt") return 20;
     return "";
   }
+  // Switching a subject/quarter into Detailed mode: if any component (WW/PT/QA)
+  // has no items yet, seed it with one blank item so the parent isn't stuck
+  // looking at "No items yet." and having to tap +Add three times themselves.
+  function switchToDetailedMode(subjectId, quarterId) {
+    setGrades(prev => {
+      const subj = {
+        ...(prev[subjectId] || {})
+      };
+      const q = {
+        ...(subj[quarterId] || {
+          mode: "final"
+        })
+      };
+      const next = {
+        ...q,
+        mode: "detailed"
+      };
+      ["ww", "pt", "qa"].forEach(key => {
+        if (!Array.isArray(next[key]) || next[key].length === 0) {
+          next[key] = [{
+            score: "",
+            total: defaultTotalFor(key)
+          }];
+        }
+      });
+      subj[quarterId] = next;
+      return {
+        ...prev,
+        [subjectId]: subj
+      };
+    });
+  }
   function addGradeItem(subjectId, quarterId, key) {
     setGrades(prev => {
       const subj = {
@@ -11542,6 +12468,50 @@ function App() {
     Sound.nav();
     setNav({
       screen: "typing"
+    });
+    setQuizSession(null);
+  }
+  function goQuestions() {
+    Sound.nav();
+    setNav({
+      screen: "questions"
+    });
+    setQuizSession(null);
+  }
+  function goMathTinik() {
+    Sound.nav();
+    setNav({
+      screen: "mathtinik"
+    });
+    setQuizSession(null);
+  }
+  function regenerateMathTinik() {
+    setMathTinikProblems(mtGenerateAllSets());
+  }
+  function goTimeTinik() {
+    Sound.nav();
+    setNav({
+      screen: "timetinik"
+    });
+    setQuizSession(null);
+  }
+  function regenerateTimeTinik() {
+    setTimeTinikProblems(ttGenerateAllSets());
+  }
+  function goFractionTinik() {
+    Sound.nav();
+    setNav({
+      screen: "fractiontinik"
+    });
+    setQuizSession(null);
+  }
+  function regenerateFractionTinik() {
+    setFractionTinikProblems(ftGenerateAllSets());
+  }
+  function goSpellingTinik() {
+    Sound.nav();
+    setNav({
+      screen: "spellingtinik"
     });
     setQuizSession(null);
   }
@@ -11792,6 +12762,48 @@ function App() {
       goDashboard,
       toggleGeneralWord
     });
+  } else if (nav.screen === "questions") {
+    content = /*#__PURE__*/React.createElement(QuestionsScreen, {
+      goDashboard,
+      goMathTinik,
+      goTimeTinik,
+      goFractionTinik,
+      goSpellingTinik
+    });
+  } else if (nav.screen === "mathtinik") {
+    content = /*#__PURE__*/React.createElement(TinikScreen, {
+      title: "Operation",
+      icon: "🔢",
+      setCount: MATH_TINIK_SET_COUNT,
+      levels: MATH_TINIK_LEVELS,
+      problems: mathTinikProblems,
+      regenerateProblems: regenerateMathTinik,
+      goBack: goQuestions
+    });
+  } else if (nav.screen === "timetinik") {
+    content = /*#__PURE__*/React.createElement(TinikScreen, {
+      title: "Time",
+      icon: "🕐",
+      setCount: TIME_TINIK_SET_COUNT,
+      levels: TIME_TINIK_LEVELS,
+      problems: timeTinikProblems,
+      regenerateProblems: regenerateTimeTinik,
+      goBack: goQuestions
+    });
+  } else if (nav.screen === "fractiontinik") {
+    content = /*#__PURE__*/React.createElement(TinikScreen, {
+      title: "Fraction",
+      icon: "🍕",
+      setCount: FRACTION_TINIK_SET_COUNT,
+      levels: FRACTION_TINIK_LEVELS,
+      problems: fractionTinikProblems,
+      regenerateProblems: regenerateFractionTinik,
+      goBack: goQuestions
+    });
+  } else if (nav.screen === "spellingtinik") {
+    content = /*#__PURE__*/React.createElement(SpellingTinikScreen, {
+      goBack: goQuestions
+    });
   } else if (nav.screen === "notes") {
     content = /*#__PURE__*/React.createElement(NotesScreen, {
       addNote,
@@ -11828,6 +12840,7 @@ function App() {
     content = /*#__PURE__*/React.createElement(SubjectsScreen, {
       generalKnown,
       goGeneral,
+      goQuestions,
       goSubjectHome,
       goTyping,
       progress,
@@ -11840,6 +12853,7 @@ function App() {
       customLessons,
       generalKnown,
       goGeneral,
+      goQuestions,
       goSubjectHome,
       goTyping,
       progress,
