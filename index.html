@@ -1407,6 +1407,25 @@ function queueCloudSync() {
 window.addEventListener("storage", e => {
   if (isSyncedKey(e.key)) queueCloudSync();
 });
+// Firebase rejects any key anywhere in the JSON tree containing '.', '#',
+// '$', '[', or ']' — and its REST error message doesn't say which key or
+// where. This walks the exact object about to be sent and reports the
+// first offending key's full path, so a 400 is actually debuggable instead
+// of a dead end.
+function findBadFirebaseKey(obj, path = "") {
+  const forbidden = /[.#$\[\]]/;
+  if (obj !== null && typeof obj === "object") {
+    for (const k of Object.keys(obj)) {
+      if (forbidden.test(k)) {
+        return `${path}/${k}  <-- forbidden character in this key`;
+      }
+      const found = findBadFirebaseKey(obj[k], `${path}/${k}`);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 async function pushToCloud() {
   try {
     // PATCH (not PUT): Firebase's REST PATCH does a shallow merge of just the
@@ -1415,12 +1434,17 @@ async function pushToCloud() {
     // any key missing from this device's local snapshot (e.g. grades, if this
     // device hadn't pulled it down yet) would get silently deleted from the
     // cloud for every device. PATCH can't erase what it doesn't mention.
+    const snapshot = buildLocalSnapshot();
+    const badKey = findBadFirebaseKey(snapshot);
+    if (badKey) {
+      console.error("Firebase sync blocked — invalid key found at:", badKey);
+    }
     const res = await fetch(CLOUD_URL, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(buildLocalSnapshot())
+      body: JSON.stringify(snapshot)
     });
     if (!res.ok) {
       // Firebase's error body names the exact bad key/path (e.g. a
