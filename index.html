@@ -1422,7 +1422,14 @@ async function pushToCloud() {
       },
       body: JSON.stringify(buildLocalSnapshot())
     });
-    if (!res.ok) throw new Error("bad response");
+    if (!res.ok) {
+      // Firebase's error body names the exact bad key/path (e.g. a
+      // forbidden character like "." in a nested key) — surface it
+      // instead of a generic message so this is actually debuggable.
+      let detail = "";
+      try { detail = await res.text(); } catch (e2) {}
+      throw new Error(`bad response (${res.status}): ${detail}`);
+    }
     return true;
   } catch (e) {
     // Offline — local copy is still safe.
