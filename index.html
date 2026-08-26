@@ -1407,11 +1407,49 @@ function queueCloudSync() {
 window.addEventListener("storage", e => {
   if (isSyncedKey(e.key)) queueCloudSync();
 });
+// Firebase forbids '.', '#', '$', '[', ']' anywhere in a key — but story
+// data can legitimately contain them (e.g. a character named "Mr. Fox").
+// Rather than stripping/renaming that data (which would break the
+// case-insensitive speaker-name matching used for voice assignment),
+// these two functions reversibly encode just the forbidden characters
+// in KEYS ONLY on the way up to Firebase, and decode them back on the
+// way down — so the actual story/note data on this device never changes,
+// Firebase never rejects the write, and nothing has to be manually edited.
+function encodeFirebaseKey(k) {
+  return k.replace(/[~.#$\[\]]/g, c => "~" + c.charCodeAt(0).toString(16));
+}
+function decodeFirebaseKey(k) {
+  return k.replace(/~([0-9a-f]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+function encodeKeysForFirebase(obj) {
+  if (Array.isArray(obj)) return obj.map(encodeKeysForFirebase);
+  if (obj !== null && typeof obj === "object") {
+    const out = {};
+    for (const k of Object.keys(obj)) {
+      out[encodeFirebaseKey(k)] = encodeKeysForFirebase(obj[k]);
+    }
+    return out;
+  }
+  return obj;
+}
+function decodeKeysFromFirebase(obj) {
+  if (Array.isArray(obj)) return obj.map(decodeKeysFromFirebase);
+  if (obj !== null && typeof obj === "object") {
+    const out = {};
+    for (const k of Object.keys(obj)) {
+      out[decodeFirebaseKey(k)] = decodeKeysFromFirebase(obj[k]);
+    }
+    return out;
+  }
+  return obj;
+}
+
 // Firebase rejects any key anywhere in the JSON tree containing '.', '#',
 // '$', '[', or ']' — and its REST error message doesn't say which key or
 // where. This walks the exact object about to be sent and reports the
 // first offending key's full path, so a 400 is actually debuggable instead
-// of a dead end.
+// of a dead end. (Kept as a safety-net check even though encodeKeysForFirebase
+// should prevent this from firing in normal operation.)
 function findBadFirebaseKey(obj, path = "") {
   const forbidden = /[.#$\[\]]/;
   if (obj !== null && typeof obj === "object") {
@@ -1434,7 +1472,7 @@ async function pushToCloud() {
     // any key missing from this device's local snapshot (e.g. grades, if this
     // device hadn't pulled it down yet) would get silently deleted from the
     // cloud for every device. PATCH can't erase what it doesn't mention.
-    const snapshot = buildLocalSnapshot();
+    const snapshot = encodeKeysForFirebase(buildLocalSnapshot());
     const badKey = findBadFirebaseKey(snapshot);
     if (badKey) {
       console.error("Firebase sync blocked — invalid key found at:", badKey);
@@ -1469,7 +1507,7 @@ async function loadFromCloud() {
   try {
     const res = await fetch(CLOUD_URL);
     if (!res.ok) throw new Error("bad response");
-    const remote = await res.json();
+    const remote = decodeKeysFromFirebase(await res.json());
     if (remote && typeof remote === "object") {
       // If the user edited something while this fetch was in flight, the
       // remote snapshot we just got back is now stale — applying it would
