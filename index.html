@@ -1005,6 +1005,20 @@ function(a,b,c){if(!Vd(b))throw Error(n(200));return Wd(null,a,b,!1,c)};Q.unmoun
   .results-emoji{font-size:56px;}
   .results-score{font-family:'Fredoka';font-weight:700;font-size:40px;margin:6px 0 2px;color:var(--night);}
   .results-sub{color:var(--ink-soft);font-size:14.5px;margin-bottom:18px;font-weight:600;}
+  .results-breakdown{text-align:left;margin-top:18px;background:var(--bg2, rgba(0,0,0,0.03));border:2px solid var(--line);border-radius:var(--radius-md);padding:14px 16px;}
+  .results-breakdown h4{margin:0 0 12px;font-family:'Fredoka';font-size:13.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);}
+  .results-breakdown-row{margin-bottom:10px;}
+  .results-breakdown-row:last-child{margin-bottom:0;}
+  .rbr-top{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:700;margin-bottom:4px;}
+  .rbr-name{color:var(--ink);}
+  .rbr-score{color:var(--ink-soft);font-weight:800;}
+  .rbr-bar{height:8px;border-radius:6px;background:var(--line);overflow:hidden;}
+  .rbr-bar-fill{height:100%;border-radius:6px;transition:width .4s ease;}
+  .results-card.reward .results-breakdown{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.16);}
+  .results-card.reward .results-breakdown h4{color:#C9C2FF;}
+  .results-card.reward .rbr-name{color:#F1EEFF;}
+  .results-card.reward .rbr-score{color:#C9C2FF;}
+  .results-card.reward .rbr-bar{background:rgba(255,255,255,0.15);}
   .review-list{text-align:left;margin-top:18px;}
   .review-item{
     border:2.5px solid var(--line);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:10px;
@@ -1352,6 +1366,16 @@ function(a,b,c){if(!Vd(b))throw Error(n(200));return Wd(null,a,b,!1,c)};Q.unmoun
   .bank-topic-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:8px 0;border-top:1.5px dashed var(--line);}
   .bank-topic-row:first-of-type{border-top:none;}
   .bank-topic-name{font-weight:800;font-size:14px;}
+  .lq-block-list{border:2.5px solid var(--line);border-radius:var(--radius-sm);padding:4px 14px;margin-bottom:16px;background:var(--card);}
+  .lq-block-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1.5px dashed var(--line);}
+  .lq-block-row:first-child{border-top:none;}
+  .lq-block-info{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12.5px;}
+  .lq-block-chip{background:var(--bg2, rgba(0,0,0,0.05));border-radius:20px;padding:3px 10px;font-weight:700;}
+  .lq-block-sep{color:var(--ink-soft);font-weight:700;}
+  .lq-block-count{font-family:'Fredoka';font-weight:700;font-size:12.5px;color:var(--night);white-space:nowrap;}
+  .lq-block-remove{flex:none;background:none;border:none;color:var(--bad);font-weight:800;font-size:16px;box-shadow:none;padding:2px 6px;cursor:pointer;}
+  .lq-draft-form{border:2.5px dashed var(--line);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;}
+  .lq-total{font-size:13px;font-weight:700;color:var(--ink-soft);margin-bottom:10px;}
   .json-format-row{margin-bottom:14px;}
   .json-format-label{font-weight:800;font-size:13.5px;margin-bottom:4px;}
   .json-format-code-wrap{position:relative;}
@@ -1862,1159 +1886,60 @@ async function loadFromCloud() {
 /* =========================================================
    CONTENT DATA — Robotics 2, SY 2026-2027 (Sacred Heart Academy of Pasig)
    ========================================================= */
-const COMPUTER_QUARTERS = [{
-  id: "c2_q1",
-  num: "First Quarter",
-  title: "Meet the Robots",
-  icon: "🤖",
-  color: "var(--q1)",
-  colorSoft: "var(--q1-soft)",
-  chapters: [{
-    id: "c2_q1c1",
-    title: "Lesson 1: Introduction to Robots",
-    lessons: [{
-      id: "c2_q1c1l1",
-      title: "What Can Robots Do?",
-      sub: "Robot Functions, Hardware and Software",
-      learn: ["A robot is a machine that can sense the world around it, think using a set of instructions, and then move or act to do a job.", "Robots can do many jobs for people — they can carry things, follow lines, make sounds, light up, and even answer questions!", "Hardware is the part of the robot you can touch, like its wheels, sensors, wires, and body.", "Software is the set of instructions, or code, that tells the robot's hardware what to do and when to do it."]
-    }]
-  }, {
-    id: "c2_q1c2",
-    title: "Lesson 2: Meet the mBot Neo",
-    lessons: [{
-      id: "c2_q1c2l1",
-      title: "Getting to Know the mBot Neo",
-      sub: "Parts of mBot Neo and What They Do",
-      learn: ["The mBot Neo is a small, friendly robot that students use to learn about robotics and coding.", "It has wheels to move around, a light-up screen for showing faces and messages, and sensors that let it sense light, sound, and objects nearby.", "The main board is like the robot's brain — it receives the code and tells the other parts what to do.", "Buttons and a speaker on the mBot Neo let it react and make sounds when it senses something."]
-    }]
-  }, {
-    id: "c2_q1c3",
-    title: "Lesson 3: Live Control Using the Makeblock App",
-    lessons: [{
-      id: "c2_q1c3l1",
-      title: "Driving the Robot with an App",
-      sub: "What is Makeblock App? Its Functions and How to Navigate It",
-      learn: ["The Makeblock app is a program on a tablet or phone that can connect to the mBot Neo and control it directly.", "With live control, you can press buttons on the app's screen to make the robot move forward, turn, light up, or make sounds right away.", "The app's main screen has simple icons for driving the robot, changing its lights, and playing sounds.", "Learning to navigate the app means knowing where to tap to connect to your robot and find the different control buttons."]
-    }]
-  }]
-}, {
-  id: "c2_q2",
-  num: "Second Quarter",
-  title: "Coding Basics",
-  icon: "🧩",
-  color: "var(--q2)",
-  colorSoft: "var(--q2-soft)",
-  chapters: [{
-    id: "c2_q2c1",
-    title: "Lesson 4: Basic Programming Concepts",
-    lessons: [{
-      id: "c2_q2c1l1",
-      title: "Building Blocks of Code",
-      sub: "Variables, Loops, Conditional Statements, Functions, and Events",
-      learn: ["A variable is like a labeled box that stores information a program can use and change, such as a score or a name.", "A loop is a set of instructions that repeats again and again, so you don't have to write the same step many times.", "A conditional statement lets a program make a choice — it says 'if this happens, do this; if not, do something else.'", "A function is a group of instructions saved together under one name so it can be reused, while an event is something that makes a program start, like pressing a button or a key."]
-    }]
-  }, {
-    id: "c2_q2c2",
-    title: "Lesson 5: Introduction to Block-Based Coding",
-    lessons: [{
-      id: "c2_q2c2l1",
-      title: "Coding with the mBlock App",
-      sub: "What is mBlock App? Its Features and Basic Movements",
-      learn: ["The mBlock app is a beginner-friendly program where you write code by snapping colorful blocks together instead of typing.", "Each block stands for one instruction, like 'move forward' or 'turn left' — connecting blocks in order tells the robot what to do, step by step.", "mBlock has different groups of blocks, such as Motion blocks for moving, Looks blocks for lights and screens, and Sound blocks for making noise.", "To make the robot move, you drag motion blocks into the coding area and press the green flag or run button to start the program."]
-    }]
-  }]
-}, {
-  id: "c2_q3",
-  num: "Third Quarter",
-  title: "Sounds, Colors & Text",
-  icon: "🎵",
-  color: "var(--q3)",
-  colorSoft: "var(--q3-soft)",
-  chapters: [{
-    id: "c2_q3c1",
-    title: "Lesson 6: Tones and Music",
-    lessons: [{
-      id: "c2_q3c1l1",
-      title: "Making the Robot Sing",
-      sub: "Audio Blocks, Wait Block, Play Note Blocks, and Play Instrument Blocks",
-      learn: ["Audio blocks in mBlock let the robot make sounds and play little tunes through its built-in speaker.", "The wait block pauses the program for a chosen number of seconds before moving to the next instruction — useful for timing music correctly.", "Play note blocks let you choose a musical note and how long it plays, so you can build a simple melody.", "Play instrument blocks let you pick a different instrument sound, like a piano or a drum, to make the music more fun."]
-    }]
-  }, {
-    id: "c2_q3c2",
-    title: "Lesson 7: Colors",
-    lessons: [{
-      id: "c2_q3c2l1",
-      title: "Lighting It Up",
-      sub: "LED and LED Blocks",
-      learn: ["LED stands for Light Emitting Diode — it is a tiny light that can turn on, turn off, and glow in many colors.", "The mBot Neo has LED lights that can be programmed to change color, blink, or stay on using LED blocks in mBlock.", "LED blocks let you choose a color, like red, blue, or green, and tell the robot exactly which light to turn on.", "Combining LED blocks with wait blocks lets you make colorful light patterns, like a rainbow that changes every second."]
-    }]
-  }, {
-    id: "c2_q3c3",
-    title: "Lesson 8: Texts",
-    lessons: [{
-      id: "c2_q3c3l1",
-      title: "Showing Words and Messages",
-      sub: "Display Blocks",
-      learn: ["The mBot Neo has a small screen that can show pictures, numbers, and short messages.", "Display blocks in mBlock let you type in a word or message and show it on the robot's screen.", "You can control how long a message stays on the screen by combining a display block with a wait block.", "Showing text on the screen is a fun way for the robot to 'talk' to people, like saying 'Hello!' or showing a smiley face."]
-    }]
-  }]
-}, {
-  id: "c2_q4",
-  num: "Fourth Quarter",
-  title: "Robot Senses",
-  icon: "📡",
-  color: "var(--q4)",
-  colorSoft: "var(--q4-soft)",
-  chapters: [{
-    id: "c2_q4c1",
-    title: "Lesson 9: Sound Sensor",
-    lessons: [{
-      id: "c2_q4c1l1",
-      title: "Robots That Can Hear",
-      sub: "What is a Sound Sensor? Sensing Blocks and the Infinite Loop",
-      learn: ["A sound sensor is a part of the robot that can detect noise around it, like clapping or talking.", "Sensing blocks in mBlock let the program check what the sound sensor detects, so the robot can react to loud sounds.", "An infinite loop is a loop that repeats forever, which is useful for making the robot listen for sounds all the time.", "By combining a sound sensor with an infinite loop, you can make a robot that lights up or moves every time it hears a clap."]
-    }]
-  }, {
-    id: "c2_q4c2",
-    title: "Lesson 10: Light Sensor",
-    lessons: [{
-      id: "c2_q4c2l1",
-      title: "Robots That Can See Brightness",
-      sub: "What is a Light Sensor? Ambient Light Intensity",
-      learn: ["A light sensor is a part of the robot that can detect how bright or dark its surroundings are.", "Ambient light intensity is the amount of light in the area around the robot, measured by the light sensor.", "Programs can use the light sensor's readings to make decisions, like turning on the robot's LED lights only when the room is dark.", "Light sensors are also used in real life, such as street lamps that turn on automatically at night."]
-    }]
-  }, {
-    id: "c2_q4c3",
-    title: "Lesson 11: Ultrasonic Sensor",
-    lessons: [{
-      id: "c2_q4c3l1",
-      title: "Robots That Can Sense Distance",
-      sub: "What is an Ultrasonic Sensor? Ultrasonic Blocks",
-      learn: ["An ultrasonic sensor lets a robot 'see' how far away an object is by sending out sound waves that bounce back like an echo.", "The sensor measures how long the sound wave takes to return, and the mBot Neo uses this to know the distance to nearby objects.", "Ultrasonic blocks in mBlock let the program check the distance reading and use it to make choices, like stopping before hitting a wall.", "Robots with ultrasonic sensors are used in real life for things like self-parking cars and robots that avoid bumping into obstacles."]
-    }]
-  }]
-}];
+// Lesson/quiz/story content lives in g2content.json (next to this HTML file)
+// so the HTML stays small and the content is easy to edit without touching
+// code. Loaded synchronously so all the const declarations below can use it
+// immediately, same as when the data was inline.
+let CONTENT_DATA;
+{
+  const xhr = new XMLHttpRequest();
+  xhr.open("GET", "./g2content.json", false);
+  xhr.send(null);
+  if (xhr.status !== 200 && xhr.status !== 0) {
+    throw new Error("Failed to load g2content.json (status " + xhr.status + "). Make sure g2content.json is uploaded next to this HTML file.");
+  }
+  CONTENT_DATA = JSON.parse(xhr.responseText);
+}
+const COMPUTER_QUARTERS = CONTENT_DATA.computer;
 
 /* =========================================================
    CONTENT DATA — Makabansa 2, SY 2026-2027 (Sacred Heart Academy of Pasig)
    ========================================================= */
-const AP_QUARTERS = [{
-  id: "ap2_q1",
-  num: "Unang Markahan",
-  title: "Ang Ating Komunidad",
-  icon: "🏘️",
-  color: "var(--q1)",
-  colorSoft: "var(--q1-soft)",
-  chapters: [{
-    id: "ap2_q1c1",
-    title: "Aralin 1: Konsepto ng Komunidad",
-    lessons: [{
-      id: "ap2_q1c1l1",
-      title: "Ano ang Komunidad?",
-      sub: "Uri ng Komunidad",
-      learn: ["Ang komunidad ay grupo ng mga taong magkakasamang naninirahan sa isang lugar at nagtutulungan sa isa't isa.", "Sa komunidad, may mga kapitbahay, kaibigan, at kapamilya na tumutulong sa isa't isa araw-araw.", "May iba't ibang uri ng komunidad: ang lungsod (siyudad) na maraming gusali at tao, at ang nayon (baryo) na mas tahimik at may malawak na bukid.", "Bawat komunidad ay may sariling katangian, ngunit lahat ay may pangkaraniwang layunin — ang magtulungan at mamuhay nang mapayapa."]
-    }]
-  }, {
-    id: "ap2_q1c2",
-    title: "Aralin 2: Lokasyon at Lawak ng Komunidad",
-    lessons: [{
-      id: "ap2_q1c2l1",
-      title: "Saan Matatagpuan ang Ating Komunidad?",
-      sub: "Mga Simbolong Ginagamit sa Mapa",
-      learn: ["Ang lokasyon ng komunidad ay tumutukoy kung saan ito matatagpuan, tulad ng pangalan ng barangay, bayan, o lungsod na kinabibilangan nito.", "Ang mapa ay guhit na tumutulong sa atin na makita kung saan matatagpuan ang mga lugar, kalsada, at gusali sa ating komunidad.", "May mga simbolo sa mapa na kumakatawan sa tunay na bagay, tulad ng linya para sa kalsada, tatsulok para sa bundok, at kahon para sa gusali.", "Mahalagang maunawaan ang mga simbolo sa mapa upang madali nating mahanap ang mga lugar sa ating komunidad."]
-    }]
-  }, {
-    id: "ap2_q1c3",
-    title: "Aralin 3: Palatandaang Heograpikal ng Komunidad",
-    lessons: [{
-      id: "ap2_q1c3l1",
-      title: "Mga Anyong Lupa at Anyong Tubig sa Ating Paligid",
-      sub: "Mga Tanyag na Palatandaan",
-      learn: ["Ang anyong lupa ay tumutukoy sa mga likas na katangian ng lupa, tulad ng bundok, burol, at kapatagan.", "Ang anyong tubig naman ay tumutukoy sa mga katubigan tulad ng ilog, dagat, lawa, at bukal.", "Ang mga anyong lupa at anyong tubig ay tumutulong sa mga tao — nagbibigay ito ng lugar para magtanim, mangisda, o magbakasyon.", "May mga tanyag na palatandaang heograpikal sa iba't ibang komunidad, tulad ng bundok, ilog, o dalampasigan, na nagpapakilala sa lugar."]
-    }]
-  }, {
-    id: "ap2_q1c4",
-    title: "Aralin 4: Mga Bumubuo ng Komunidad",
-    lessons: [{
-      id: "ap2_q1c4l1",
-      title: "Ang mga Tao at Institusyon sa Komunidad",
-      sub: "Mga Taong Naninirahan at Mahahalagang Institusyon",
-      learn: ["Ang komunidad ay binubuo ng iba't ibang uri ng tao — mga bata, magulang, matatanda, at mga manggagawa na tumutulong sa isa't isa.", "Bawat tao sa komunidad ay may sariling gawain at kontribusyon, tulad ng guro na nagtuturo o pulis na nagbabantay sa kaligtasan.", "Ang institusyon ay isang samahan o pasilidad na naghahandog ng serbisyo sa komunidad, tulad ng paaralan, ospital, simbahan, at pamilihan.", "Ang mga institusyong ito ay tumutulong upang maging maayos, malusog, at ligtas ang buhay ng lahat ng miyembro ng komunidad."]
-    }]
-  }]
-}, {
-  id: "ap2_q2",
-  num: "Ikalawang Markahan",
-  title: "Ang Kultura ng Ating Komunidad",
-  icon: "🎎",
-  color: "var(--q2)",
-  colorSoft: "var(--q2-soft)",
-  chapters: [{
-    id: "ap2_q2c1",
-    title: "Aralin 1: Kultura ng Komunidad",
-    lessons: [{
-      id: "ap2_q2c1l1",
-      title: "Ano ang Kultura?",
-      sub: "Pagbabagong Nagaganap sa Kapaligiran at Kultura ng Komunidad",
-      learn: ["Ang kultura ay ang paraan ng pamumuhay, paniniwala, at tradisyon ng isang grupo ng tao na naipapasa mula sa isang henerasyon patungo sa susunod.", "Kasama sa kultura ang wika, pagkain, kasuotan, sayaw, at mga kaugalian ng isang komunidad.", "Ang kapaligiran at kultura ng isang komunidad ay maaaring magbago sa paglipas ng panahon dahil sa bagong teknolohiya at impluwensya mula sa ibang lugar.", "Sa kabila ng mga pagbabago, mahalagang alalahanin at ipagmalaki ang mga tradisyon na nagpapakilala sa ating komunidad."]
-    }]
-  }, {
-    id: "ap2_q2c2",
-    title: "Aralin 2: Mga Materyal at Di-Materyal na Kultura",
-    lessons: [{
-      id: "ap2_q2c2l1",
-      title: "Mga Bagay at Paniniwalang Bahagi ng Kultura",
-      sub: "",
-      learn: ["Ang materyal na kultura ay tumutukoy sa mga bagay na maaaring hawakan o makita, tulad ng damit, kasangkapan, at bahay.", "Ang di-materyal na kultura naman ay tumutukoy sa mga bagay na hindi nahahawakan, tulad ng paniniwala, wika, at mga kwentong bayan.", "Halimbawa ng materyal na kultura sa Pilipinas: bahay-kubo, jeepney, at mga tradisyunal na kasuotan tulad ng barong Tagalog.", "Halimbawa ng di-materyal na kultura: pagbati ng 'mano po' sa nakatatanda, at ang paniniwala sa bayanihan o pagtutulungan."]
-    }]
-  }, {
-    id: "ap2_q2c3",
-    title: "Aralin 3: Pagkakakilanlang Kultural ng Komunidad",
-    lessons: [{
-      id: "ap2_q2c3l1",
-      title: "Mga Pagdiriwang at Tradisyon",
-      sub: "Pagdiriwang na Panrelihiyon, Pansibiko, at mga Tradisyon",
-      learn: ["Ang mga pagdiriwang na panrelihiyon ay may kinalaman sa paniniwala sa relihiyon, tulad ng Pasko, Mahal na Araw, at pista ng bayan.", "Ang mga pagdiriwang na pansibiko naman ay pambansang okasyon tulad ng Araw ng Kalayaan at Araw ng mga Bayani.", "May mga tradisyon din ang bawat komunidad, tulad ng pag-aalay ng bulaklak, sayaw-bayan, o pagdiriwang ng ani (harvest festival).", "Ang mga pagdiriwang na ito ay nagpapakita ng pagkakakilanlang kultural at nagpapalakas ng samahan ng mga miyembro ng komunidad."]
-    }]
-  }, {
-    id: "ap2_q2c4",
-    title: "Aralin 4: Pagbibigay-Halaga sa Kultura ng Komunidad",
-    lessons: [{
-      id: "ap2_q2c4l1",
-      title: "Bakit Mahalaga ang Pagpapahalaga sa Kultura?",
-      sub: "",
-      learn: ["Mahalagang pahalagahan ang kultura ng ating komunidad dahil ito ang nagpapakilala kung sino tayo bilang mga Pilipino.", "Sa pagpapahalaga sa kultura, natutulungan tayong maintindihan at igalang ang kasaysayan at pinagmulan ng ating komunidad.", "Ang paggalang sa mga tradisyon at kaugalian ay tumutulong upang mapanatili ang mga ito para sa susunod na henerasyon.", "Maaari nating ipakita ang pagpapahalaga sa kultura sa pamamagitan ng pakikilahok sa mga pagdiriwang at paggalang sa mga nakatatanda."]
-    }]
-  }]
-}, {
-  id: "ap2_q3",
-  num: "Ikatlong Markahan",
-  title: "Ang Pamumuhay at mga Serbisyo sa Ating Komunidad",
-  icon: "🌾",
-  color: "var(--q3)",
-  colorSoft: "var(--q3-soft)",
-  chapters: [{
-    id: "ap2_q3c1",
-    title: "Aralin 1: Agrikultural at Industriyal na Kabuhayan ng Komunidad",
-    lessons: [{
-      id: "ap2_q3c1l1",
-      title: "Pagsasaka at Paggawa sa Komunidad",
-      sub: "",
-      learn: ["Ang agrikultural na kabuhayan ay may kinalaman sa pagsasaka at pag-aalaga ng hayop, tulad ng pagtatanim ng palay o pag-aalaga ng manok.", "Ang industriyal na kabuhayan naman ay may kinalaman sa paggawa ng produkto sa pabrika, tulad ng paggawa ng damit o pagkain.", "Ang uri ng kabuhayan sa isang komunidad ay madalas nakadepende sa lokasyon nito — malapit ba ito sa bukid, dagat, o lungsod.", "Ang parehong agrikultural at industriyal na kabuhayan ay mahalaga sapagkat nagbibigay ito ng trabaho at produktong ginagamit ng mga tao."]
-    }]
-  }, {
-    id: "ap2_q3c2",
-    title: "Aralin 2: Mga Likas na Yaman at Produkto ng Komunidad",
-    lessons: [{
-      id: "ap2_q3c2l1",
-      title: "Mga Regalo ng Kalikasan sa Ating Komunidad",
-      sub: "",
-      learn: ["Ang likas na yaman ay mga bagay na galing sa kalikasan na ginagamit ng mga tao, tulad ng lupa, tubig, kahoy, at isda.", "Ang bawat komunidad ay may sariling likas na yaman na maaaring gawing produkto, tulad ng palay, prutas, o gulay.", "Ang mga produkto mula sa likas na yaman ay ipinagbibili sa palengke o pinapadala sa ibang lugar upang matulungan ang kabuhayan ng komunidad.", "Mahalagang alagaan ang likas na yaman upang patuloy itong makatulong sa ating komunidad."]
-    }]
-  }, {
-    id: "ap2_q3c3",
-    title: "Aralin 3: Kabuhayang Pampinansiyal at Panserbisyo ng Komunidad",
-    lessons: [{
-      id: "ap2_q3c3l1",
-      title: "Mga Trabahong Tumutulong at Naglilingkod",
-      sub: "",
-      learn: ["Ang kabuhayang pampinansiyal ay may kinalaman sa pera, tulad ng pagtatrabaho sa bangko o pagtitinda sa tindahan.", "Ang kabuhayang panserbisyo naman ay tumutulong sa mga tao sa pamamagitan ng paglilingkod, tulad ng pagtuturo, pagpapagamot, o pagbabantay ng kaligtasan.", "Halimbawa ng mga manggagawang panserbisyo: guro, doktor, nars, pulis, at bumbero.", "Ang bawat manggagawa, kabilang ang mga nagtatrabaho sa bangko o nagbibigay ng serbisyo, ay may mahalagang papel sa pag-unlad ng komunidad."]
-    }]
-  }, {
-    id: "ap2_q3c4",
-    title: "Aralin 4: Pamumuhay at Serbisyo sa Kinabibilangang Komunidad",
-    lessons: [{
-      id: "ap2_q3c4l1",
-      title: "Paano Tayo Nabubuhay sa Ating Komunidad?",
-      sub: "",
-      learn: ["Ang pamumuhay sa isang komunidad ay tumutukoy sa kabuuang paraan ng pang-araw-araw na pamamalagi ng mga tao rito, kabilang ang trabaho at gawain.", "May iba't ibang serbisyong tinatanggap ang mga miyembro ng komunidad, tulad ng patubig, kuryente, at koleksyon ng basura.", "Ang mga serbisyong ito ay tumutulong upang maging maayos, malinis, at maginhawa ang buhay ng mga tao sa komunidad.", "Ang bawat isa sa komunidad ay dapat tumutulong upang mapanatili ang maayos na serbisyo, tulad ng pagtatapon ng basura sa tamang lugar."]
-    }]
-  }, {
-    id: "ap2_q3c5",
-    title: "Aralin 5: Pagpapahalaga sa Pamumuhay at mga Serbisyo sa Komunidad",
-    lessons: [{
-      id: "ap2_q3c5l1",
-      title: "Pasasalamat sa mga Tumutulong sa Atin",
-      sub: "",
-      learn: ["Mahalagang pahalagahan ang mga taong nagtatrabaho at naglilingkod sa ating komunidad, dahil sila ang tumutulong upang maging maayos ang ating pamumuhay.", "Ang pagpapahalaga ay maaaring ipakita sa pamamagitan ng pagsasabi ng 'salamat' at paggalang sa gawain ng bawat manggagawa.", "Dapat din nating alagaan ang mga likas na yaman at produkto ng ating komunidad upang patuloy itong makatulong sa hinaharap.", "Sa pagtutulungan ng lahat, mas gumaganda at umuunlad ang pamumuhay at serbisyo sa ating komunidad."]
-    }]
-  }]
-}, {
-  id: "ap2_q4",
-  num: "Ikaapat na Markahan",
-  title: "Pakikipagkapwa at Pakikibahagi sa Ating Komunidad",
-  icon: "🤝",
-  color: "var(--q4)",
-  colorSoft: "var(--q4-soft)",
-  chapters: [{
-    id: "ap2_q4c1",
-    title: "Aralin 1: Pakikipagkapwa at Pakikibahagi sa Komunidad",
-    lessons: [{
-      id: "ap2_q4c1l1",
-      title: "Pagtutulungan sa Ating Komunidad",
-      sub: "",
-      learn: ["Ang pakikipagkapwa ay ang pakikitungo natin nang mabuti sa ibang tao, na kinikilala natin bilang kapwa katulad natin.", "Ang pakikibahagi naman ay ang pag-aambag o pakikilahok sa mga gawain at pangangailangan ng komunidad.", "Kapag tayo ay nakikipagkapwa at nakikibahagi, tumutulong tayo upang maging maayos at masaya ang buhay ng buong komunidad.", "Halimbawa ng pakikipagkapwa at pakikibahagi: pagtulong sa kapitbahay, paglahok sa malinis na paligid, at pakikiisa sa mga proyekto ng barangay."]
-    }]
-  }, {
-    id: "ap2_q4c2",
-    title: "Aralin 2: Pamamaraan ng Pakikipagkapwa at Pakikibahagi",
-    lessons: [{
-      id: "ap2_q4c2l1",
-      title: "Paano Tayo Nakikipagkapwa?",
-      sub: "",
-      learn: ["May iba't ibang paraan upang makipagkapwa at makibahagi sa komunidad, tulad ng pakikinig, pagtulong, at pakikipag-usap nang magalang.", "Ang pagbabahagi ng oras at kakayahan, tulad ng pagsali sa mga programang pangkomunidad, ay isang mabisang paraan ng pakikibahagi.", "Ang pagsunod sa mga alituntunin at batas ng komunidad ay bahagi rin ng maayos na pakikipagkapwa.", "Ang pakikinig at pag-unawa sa damdamin ng ibang tao ay tumutulong upang lumakas ang ugnayan sa loob ng komunidad."]
-    }]
-  }, {
-    id: "ap2_q4c3",
-    title: "Aralin 3: Mga Alituntunin sa Komunidad",
-    lessons: [{
-      id: "ap2_q4c3l1",
-      title: "Mga Panuntunang Sinusunod ng Lahat",
-      sub: "",
-      learn: ["Ang alituntunin ay mga panuntunan na dapat sundin ng bawat miyembro ng komunidad upang mapanatili ang kaayusan.", "Halimbawa ng mga alituntunin: pagtatapon ng basura sa tamang lalagyan, pagsunod sa oras ng curfew, at paggalang sa pag-aari ng iba.", "Ang pagsunod sa mga alituntunin ay tumutulong upang maging ligtas at maayos ang buhay ng lahat sa komunidad.", "Kapag hindi sumunod sa mga alituntunin, maaaring magkaroon ng gulo o panganib sa komunidad."]
-    }]
-  }, {
-    id: "ap2_q4c4",
-    title: "Aralin 4: Pagpapahalaga sa Pakikipagkapwa at Pakikibahagi",
-    lessons: [{
-      id: "ap2_q4c4l1",
-      title: "Bakit Mahalaga ang Pagtutulungan?",
-      sub: "",
-      learn: ["Ang pagpapahalaga sa pakikipagkapwa ay nagpapakita ng paggalang at pagmamahal natin sa ating mga kapwa sa komunidad.", "Kapag nagtutulungan ang mga tao, mas madaling nalulutas ang mga suliranin at natatamo ang layunin ng buong komunidad.", "Ang bata na sumasali sa mga gawaing pangkomunidad, tulad ng malinis na paligid o programang pangkalusugan, ay nagpapakita ng magandang halimbawa.", "Ang pagpapahalaga sa pakikipagkapwa at pakikibahagi ay nagpapatibay ng samahan at pagkakaisa sa loob ng komunidad."]
-    }]
-  }, {
-    id: "ap2_q4c5",
-    title: "Aralin 5: Kahalagahan ng Komunidad",
-    lessons: [{
-      id: "ap2_q4c5l1",
-      title: "Bakit Mahalaga ang Ating Komunidad?",
-      sub: "",
-      learn: ["Ang komunidad ay mahalaga dahil dito natin natatamo ang pangangailangan tulad ng tirahan, pagkain, edukasyon, at kaligtasan.", "Sa komunidad, natututo tayong makisalamuha, magtulungan, at igalang ang ibang tao na may iba't ibang paniniwala at kultura.", "Ang malakas na komunidad ay nabubuo kapag ang bawat miyembro nito ay nagtutulungan at nagmamalasakit sa isa't isa.", "Bilang bahagi ng komunidad, tungkulin nating pangalagaan ito at tumulong upang ito ay patuloy na umunlad."]
-    }]
-  }]
-}];
+const AP_QUARTERS = CONTENT_DATA.ap;
 
 /* =========================================================
    CONTENT DATA — Mathematics 2, SY 2026-2027 (Sacred Heart Academy of Pasig)
    ========================================================= */
-const MATH_QUARTERS = [{
-  id: "m2_q1",
-  num: "First Quarter",
-  title: "Whole Numbers up to 1000",
-  icon: "🔢",
-  color: "var(--q1)",
-  colorSoft: "var(--q1-soft)",
-  chapters: [{
-    id: "m2_q1c1",
-    title: "A. Whole Numbers up to 1000",
-    lessons: [{
-      id: "m2_q1c1l1",
-      title: "Counting, Reading, and Ordering Numbers",
-      sub: "Skip Counting, Odd and Even, Ordinal Numbers",
-      learn: ["We can count numbers up to 1000 by 2s, 5s, 10s, 50s, and 100s — this is called skip counting, and it helps us count faster.", "Number lines, charts, and patterns can help us practice skip counting and see how numbers grow.", "We can read and write numbers up to 1000 both in symbols, like 452, and in words, like four hundred fifty-two.", "Even numbers end in 0, 2, 4, 6, or 8, while odd numbers end in 1, 3, 5, 7, or 9.", "We can order numbers up to 1000 from least to greatest or from greatest to least.", "Ordinal numbers tell the position of something in a list or line, like 1st, 2nd, 3rd, all the way up to 20th."]
-    }]
-  }, {
-    id: "m2_q1c2",
-    title: "Place Value",
-    lessons: [{
-      id: "m2_q1c2l1",
-      title: "Place Value and Value of 3-Digit Numbers",
-      sub: "Hundreds, Tens, and Ones",
-      learn: ["A 3-digit number has three places: the hundreds place, the tens place, and the ones place.", "The place value tells us what kind of place a digit is in, like hundreds, tens, or ones, while the value tells us how much the digit is actually worth.", "For example, in the number present as 452, the 4 is in the hundreds place and has a value of 400, the 5 is in the tens place with a value of 50, and the 2 is in the ones place with a value of 2.", "Knowing place value helps us understand how big or small a number is, and helps us add and subtract correctly."]
-    }]
-  }, {
-    id: "m2_q1c3",
-    title: "B. Philippine Money",
-    lessons: [{
-      id: "m2_q1c3l1",
-      title: "Reading, Writing, and Comparing Money",
-      sub: "Peso and Centavo Amounts",
-      learn: ["Philippine money is counted using pesos (₱) for bigger amounts and centavos for smaller amounts, like coins.", "We can read and write amounts of money in symbols, like ₱125.50, and in words, like one hundred twenty-five pesos and fifty centavos.", "To compare money amounts, we check the peso amount first — the amount with more pesos is greater, and if the pesos are equal we compare the centavos.", "Knowing how to read, write, and compare money helps us shop wisely and count our savings correctly."]
-    }]
-  }, {
-    id: "m2_q1c4",
-    title: "C. Operation of Whole Numbers — Addition",
-    lessons: [{
-      id: "m2_q1c4l1",
-      title: "Adding Whole Numbers up to 1000",
-      sub: "Regrouping and Word Problems",
-      learn: ["Addition means putting numbers together to find their total, or sum, and it has properties like the order of numbers not changing the sum (2+3 is the same as 3+2).", "Addition without regrouping means adding digits in each place value without needing to carry over any extra amount.", "Addition with regrouping happens when the sum of a place value is 10 or more, so we carry the extra amount over to the next place value.", "We can also add amounts of Philippine money with sums up to ₱1000, lining up the pesos and centavos correctly.", "Word problems help us use addition in real life, like finding the total cost of two toys or the total number of stickers two friends have together."]
-    }]
-  }]
-}, {
-  id: "m2_q2",
-  num: "Second Quarter",
-  title: "Subtraction & Multiplication",
-  icon: "➗",
-  color: "var(--q2)",
-  colorSoft: "var(--q2-soft)",
-  chapters: [{
-    id: "m2_q2c1",
-    title: "Subtraction of Whole Numbers",
-    lessons: [{
-      id: "m2_q2c1l1",
-      title: "Subtracting Whole Numbers with Minuends up to 999",
-      sub: "Regrouping and Word Problems",
-      learn: ["Subtraction means taking away one number, called the subtrahend, from another number, called the minuend, to find the difference.", "Subtraction without regrouping means we can subtract each place value directly without needing to borrow from the next place.", "Subtraction with regrouping happens when a digit in the minuend is smaller than the digit below it, so we borrow from the next higher place value.", "We can solve word problems using subtraction, including problems about money, like finding how much change is left after buying something."]
-    }]
-  }, {
-    id: "m2_q2c2",
-    title: "Multiplication",
-    lessons: [{
-      id: "m2_q2c2l1",
-      title: "Multiplying Numbers 1–10 by 2, 3, 4, 5, and 10",
-      sub: "Repeated Addition and Multiplication Equations",
-      learn: ["Multiplication is a fast way to add the same number many times — this is called repeated addition, like 3+3+3+3 being the same as 4 × 3.", "A multiplication equation uses the multiplication sign (×) to show how many groups of a number are being combined, like 4 × 3 = 12.", "We practice multiplying numbers 1 to 10 by 2, 3, 4, 5, and 10, which helps us build our multiplication facts.", "Word problems help us use multiplication in real life, including problems about money, like finding the total cost of several items that cost the same amount."]
-    }]
-  }]
-}, {
-  id: "m2_q3",
-  num: "Third Quarter",
-  title: "Division, Fractions & Geometry",
-  icon: "🍕",
-  color: "var(--q3)",
-  colorSoft: "var(--q3-soft)",
-  chapters: [{
-    id: "m2_q3c1",
-    title: "Division of Whole Numbers",
-    lessons: [{
-      id: "m2_q3c1l1",
-      title: "Dividing Numbers up to 100 by 2, 3, 4, 5, and 10",
-      sub: "Repeated Subtraction and Inverse Operations",
-      learn: ["Division means sharing or grouping a number equally, and it can be thought of as repeated subtraction — subtracting the same number again and again until you reach zero.", "A division equation uses the division sign (÷) to show a number being split into equal groups, like 12 ÷ 4 = 3.", "We practice dividing numbers up to 100 by 2, 3, 4, 5, and 10.", "Multiplication and division are inverse operations, which means they undo each other — if 4 × 3 = 12, then 12 ÷ 4 = 3 and 12 ÷ 3 = 4.", "Word problems help us use division in real life, including problems about money, like sharing an amount equally among friends."]
-    }]
-  }, {
-    id: "m2_q3c2",
-    title: "D. Fractions — Concept of Fractions",
-    lessons: [{
-      id: "m2_q3c2l1",
-      title: "Understanding Unit and Similar Fractions",
-      sub: "Reading, Writing, and Ordering Fractions",
-      learn: ["A unit fraction is a fraction with a numerator of 1, like 1/2, 1/3, or 1/4, showing one equal part of a whole with a denominator below 10.", "We can read and write unit fractions, like reading 1/4 as 'one-fourth' and writing it using the numeral 1 over the numeral 4.", "We can order unit fractions from least to greatest — the larger the denominator, the smaller each part becomes, so 1/4 is smaller than 1/2.", "Similar fractions are fractions that have the same denominator, like 1/5 and 2/5, which makes them easy to compare and order."]
-    }]
-  }, {
-    id: "m2_q3c3",
-    title: "II. Geometry",
-    lessons: [{
-      id: "m2_q3c3l1",
-      title: "Shapes, Slides, Flips, and Surfaces",
-      sub: "Circles, Composite Figures, and 3D Objects",
-      learn: ["A circle is a round shape, and it can be divided into a half circle (half of a circle) or a quarter circle (one-fourth of a circle).", "Composite figures are shapes made by putting together simpler shapes, like squares, rectangles, triangles, circles, half circles, and quarter circles.", "A slide moves a shape from one place to another without turning it, while a flip creates a mirror image of a shape, like flipping it over a line.", "Lines can be straight or curved, and the surfaces of 3-dimensional objects can be flat (like the side of a box) or curved (like the side of a ball)."]
-    }]
-  }]
-}, {
-  id: "m2_q4",
-  num: "Fourth Quarter",
-  title: "Measurement, Patterns & Data",
-  icon: "⏰",
-  color: "var(--q4)",
-  colorSoft: "var(--q4-soft)",
-  chapters: [{
-    id: "m2_q4c1",
-    title: "III. Measurement — Telling Time",
-    lessons: [{
-      id: "m2_q4c1l1",
-      title: "Reading Time and Finding Elapsed Time",
-      sub: "Duration and Word Problems",
-      learn: ["We can read and write time using a clock, telling the hour and the minutes, like 3:30 meaning half past three.", "Duration of time is how long an activity takes, like a class that lasts 45 minutes.", "Elapsed time is the amount of time that passes between a starting time and an ending time.", "We can solve word problems about elapsed time, like figuring out how many minutes passed between the start and end of recess."]
-    }]
-  }, {
-    id: "m2_q4c2",
-    title: "Units of Length",
-    lessons: [{
-      id: "m2_q4c2l1",
-      title: "Comparing, Measuring, and Estimating Length",
-      sub: "Word Problems",
-      learn: ["We can compare units of length to see which one is longer or shorter, like comparing a meter stick to a ruler.", "Measuring objects means using tools like a ruler or tape measure to find out exactly how long something is.", "Estimating measures of objects means making a smart guess about a length without measuring it exactly first.", "We can solve word problems using length, like finding out how much longer one pencil is compared to another."]
-    }]
-  }, {
-    id: "m2_q4c3",
-    title: "Perimeter",
-    lessons: [{
-      id: "m2_q4c3l1",
-      title: "Finding the Perimeter of Shapes",
-      sub: "Triangles, Squares, and Rectangles",
-      learn: ["The perimeter of a shape is the total distance around its outside edges.", "To find the perimeter of a triangle, we add together the lengths of all three sides.", "To find the perimeter of a square, we can add all four equal sides together, or multiply one side by 4.", "To find the perimeter of a rectangle, we add together the two lengths and two widths, since opposite sides are equal."]
-    }]
-  }, {
-    id: "m2_q4c4",
-    title: "IV. Patterns and Algebra",
-    lessons: [{
-      id: "m2_q4c4l1",
-      title: "Increasing and Decreasing Patterns",
-      sub: "",
-      learn: ["A pattern is a sequence of numbers or shapes that follow a rule, repeating or changing in a predictable way.", "An increasing pattern is a pattern where the numbers get bigger each time, like 2, 4, 6, 8, following the rule 'add 2.'", "A decreasing pattern is a pattern where the numbers get smaller each time, like 20, 17, 14, 11, following the rule 'subtract 3.'", "Finding the rule of a pattern helps us predict what number or shape comes next."]
-    }]
-  }, {
-    id: "m2_q4c5",
-    title: "V. Statistics & Probability",
-    lessons: [{
-      id: "m2_q4c5l1",
-      title: "Tabular Form and Pictographs",
-      sub: "Collecting, Presenting, Organizing, and Interpreting Data",
-      learn: ["We can collect data by counting or asking questions, like counting how many classmates like different fruits.", "A tabular form organizes data into rows and columns, called a table, so it is easy to read.", "A pictograph uses pictures or symbols to represent data, where each picture can stand for one or more items.", "Interpreting data means looking at a table or pictograph to answer questions, like which fruit is the most popular."]
-    }]
-  }]
-}];
+const MATH_QUARTERS = CONTENT_DATA.math;
 
 /* =========================================================
    CONTENT DATA — English 2, SY 2026-2027 (Sacred Heart Academy of Pasig)
    ========================================================= */
-const ENGLISH_QUARTERS = [{
-  id: "e2_q1",
-  num: "First Quarter",
-  title: "Letters, Stories & Sentence Basics",
-  icon: "🔤",
-  color: "var(--q1)",
-  colorSoft: "var(--q1-soft)",
-  chapters: [{
-    id: "e2_q1c1",
-    title: "Reading",
-    lessons: [{
-      id: "e2_q1c1l1",
-      title: "Letters, Sounds, and Sight Words",
-      sub: "Initial, Final, and Medial Letters, Rhyming Words, Vowel Digraphs",
-      learn: ["Initial, final, and medial letters are the letters found at the beginning, end, and middle of a word.", "Rhyming words are words that end with the same sound, like 'cat' and 'hat.'", "Sight words are common words we should recognize instantly, while inflection words change form to show number or tense, like 'play' becoming 'played.'", "High-frequency words are words we see often in reading, and vowel digraphs are two vowels together that make one sound, like the 'oa' in 'boat.'"]
-    }, {
-      id: "e2_q1c1l2",
-      title: "Stories and Story Elements",
-      sub: "Realism and Fantasy, Elements of a Short Story",
-      learn: ["Realism means a story could really happen, while fantasy means a story has make-believe or magical things that cannot happen in real life.", "A short story has important elements: the theme (the main message), the setting (where and when it happens), the characters (who is in the story), and the plot (what happens).", "Word patterns are groups of letters that appear again and again in different words, like the '-at' in 'cat,' 'hat,' and 'mat.'", "Noting details means paying close attention to the small but important facts in a story, like who, what, when, and where."]
-    }]
-  }, {
-    id: "e2_q1c2",
-    title: "Listening",
-    lessons: [{
-      id: "e2_q1c2l1",
-      title: "Listening for Word Patterns and Vowel Sounds",
-      sub: "-oi/oy and -ai/ay Patterns",
-      learn: ["Sight words with the -oi/oy pattern have the same vowel sound, like in 'coin' and 'boy.'", "Sight words with the -ai/ay pattern also share the same vowel sound, like in 'rain' and 'day.'", "Short vowel sounds are quick sounds, like the 'a' in 'cat,' while long vowel sounds say the letter's name, like the 'a' in 'cake.'", "Listening carefully for these sound patterns helps us read and spell new words correctly."]
-    }]
-  }, {
-    id: "e2_q1c3",
-    title: "Language",
-    lessons: [{
-      id: "e2_q1c3l1",
-      title: "Greetings, Nouns, and Pronouns",
-      sub: "Common/Proper Nouns, Gender Nouns, Pronouns, Stress and Intonation",
-      learn: ["We use greeting introductions, like 'Good morning!' or 'How are you?', to politely start a conversation.", "A noun is a word that names a person, place, thing, or animal — it can be a common noun (like 'dog') or a proper noun (like 'Max'), and can also be singular, plural, or show gender (like 'boy' and 'girl').", "A pronoun takes the place of a noun — subject pronouns (like 'he' or 'she') do the action, object pronouns (like 'him' or 'her') receive the action, demonstrative pronouns (like 'this' or 'that') point to things, and interrogative pronouns (like 'who' or 'what') ask questions.", "Stress and intonation are about how we say words — stress means saying part of a word louder, and intonation means how our voice rises or falls when we speak."]
-    }]
-  }]
-}, {
-  id: "e2_q2",
-  num: "Second Quarter",
-  title: "Books, Blends & Sentence Types",
-  icon: "📖",
-  color: "var(--q2)",
-  colorSoft: "var(--q2-soft)",
-  chapters: [{
-    id: "e2_q2c1",
-    title: "Reading",
-    lessons: [{
-      id: "e2_q2c1l1",
-      title: "Books, Words, and Consonant Sounds",
-      sub: "Fiction and Nonfiction, Parts of the Book, Alphabetizing",
-      learn: ["Fiction is a made-up story, while nonfiction gives facts and true information about real things.", "The parts of a book include the cover, title page, table of contents, and pages, which help us find and understand information.", "Alphabetizing words means putting words in order following the alphabet, like arranging 'apple,' 'banana,' and 'cherry.'", "Consonant clusters or blends are two or more consonants together where you can still hear each sound, like the 'bl' in 'blue,' while consonant digraphs are two consonants that make one new sound, like the 'sh' in 'ship.'"]
-    }]
-  }, {
-    id: "e2_q2c2",
-    title: "Listening",
-    lessons: [{
-      id: "e2_q2c2l1",
-      title: "CVC Words and Double Consonants",
-      sub: "Short Vowel Sounds, ck, and Consonant Digraphs",
-      learn: ["High-frequency words with short a, e, i, o, and u sounds often follow the CVC pattern — consonant, vowel, consonant — like 'cat,' 'bed,' 'pig,' 'dog,' and 'cup.'", "A double consonant is when the same consonant letter appears twice in a row, like the 'll' in 'ball.'", "The letters 'ck' together make one sound at the end of short words, like in 'duck' and 'sock.'", "Listening for words with consonant digraphs, like 'ch,' 'sh,' 'th,' and 'wh,' helps us read and spell them correctly."]
-    }]
-  }, {
-    id: "e2_q2c3",
-    title: "Language",
-    lessons: [{
-      id: "e2_q2c3l1",
-      title: "Sentences, Punctuation, and Prepositions",
-      sub: "Kinds of Sentences, Capitalization, Preposition",
-      learn: ["A sentence is a group of words that expresses a complete thought and has a subject and a predicate, while a non-sentence is an incomplete group of words.", "There are different kinds of sentences: statements (telling), questions (asking), commands (telling someone to do something), and exclamations (showing strong feeling).", "Punctuation marks, like the period (.), question mark (?), and exclamation point (!), show us how a sentence should be read.", "Rules of capitalization tell us to capitalize the first word of a sentence and proper nouns, while a preposition, like 'in,' 'on,' or 'under,' shows the relationship between words, especially about place or time."]
-    }]
-  }]
-}, {
-  id: "e2_q3",
-  num: "Third Quarter",
-  title: "Story Skills & Verb Tenses",
-  icon: "✍️",
-  color: "var(--q3)",
-  colorSoft: "var(--q3-soft)",
-  chapters: [{
-    id: "e2_q3c1",
-    title: "Reading",
-    lessons: [{
-      id: "e2_q3c1l1",
-      title: "Understanding Stories More Deeply",
-      sub: "Problem and Solution, Sequencing, Predicting Outcomes",
-      learn: ["The problem and solution in a story tell us what challenge the characters face and how they solve it.", "Sequencing means putting events in the correct order, like what happens first, next, and last.", "Predicting outcomes means using clues from the story to make a smart guess about what will happen next.", "Fact or opinion helps us tell the difference between something that can be proven true (a fact) and something that is someone's feeling or belief (an opinion).", "Cause and effect shows us why something happened (the cause) and what happened because of it (the effect)."]
-    }, {
-      id: "e2_q3c1l2",
-      title: "Compound Words and Diphthongs",
-      sub: "",
-      learn: ["A compound word is made by joining two smaller words together to make a new word, like 'sun' and 'flower' becoming 'sunflower.'", "A diphthong is a vowel sound made by gliding from one vowel sound to another within the same syllable, like the 'oi' in 'coin' or the 'ou' in 'cloud.'", "Recognizing compound words and diphthongs helps us read longer and trickier words with confidence.", "Practicing these reading skills makes it easier to understand and enjoy stories."]
-    }]
-  }, {
-    id: "e2_q3c2",
-    title: "Language",
-    lessons: [{
-      id: "e2_q3c2l1",
-      title: "Verbs and Verb Tenses",
-      sub: "Be Verbs, Simple Present, Past, and Future Tense",
-      learn: ["A verb is a word that shows an action, like 'run' or 'jump,' or a state of being, using be verbs like 'am,' 'is,' 'are,' 'was,' and 'were.'", "The simple present tense describes actions that happen regularly or facts that are always true, like 'She walks to school.'", "The simple past tense describes actions that already happened — regular verbs usually add '-ed' (like 'walked'), while irregular verbs change form in a special way (like 'go' becoming 'went').", "The simple future tense describes actions that will happen later, usually using the word 'will,' like 'She will walk to school tomorrow.'"]
-    }]
-  }]
-}, {
-  id: "e2_q4",
-  num: "Fourth Quarter",
-  title: "Word Meanings, Adjectives & Adverbs",
-  icon: "🌈",
-  color: "var(--q4)",
-  colorSoft: "var(--q4-soft)",
-  chapters: [{
-    id: "e2_q4c1",
-    title: "Reading",
-    lessons: [{
-      id: "e2_q4c1l1",
-      title: "Word Meanings and Word Parts",
-      sub: "Synonyms, Antonyms, Root Words, Prefix and Suffix, Homophones",
-      learn: ["Synonyms are words that mean almost the same thing, like 'happy' and 'glad,' while antonyms are words that mean the opposite, like 'hot' and 'cold.'", "Grouping similar ideas means putting related words together, often by finding their root word — the main part of a word before other parts are added.", "A prefix is added to the beginning of a word to change its meaning, like 're-' in 'redo,' and a suffix is added to the end, like '-ful' in 'joyful.'", "Homophones are words that sound the same but have different meanings and spellings, like 'to,' 'too,' and 'two.'"]
-    }, {
-      id: "e2_q4c1l2",
-      title: "Figures of Speech",
-      sub: "Simile and Metaphor",
-      learn: ["A figure of speech is a special way of describing something that is not meant to be taken literally.", "A simile compares two different things using the words 'like' or 'as,' such as 'as brave as a lion.'", "A metaphor compares two different things by saying one thing is another, without using 'like' or 'as,' such as 'the classroom was a zoo.'", "Using similes and metaphors makes our writing and speaking more colorful and interesting."]
-    }]
-  }, {
-    id: "e2_q4c2",
-    title: "Listening",
-    lessons: [{
-      id: "e2_q4c2l1",
-      title: "Listening for /ch/, ow, and ou Sounds",
-      sub: "",
-      learn: ["The /ch/ pattern makes a sound like in the words 'chair' and 'lunch.'", "The letters 'ow' can make a sound like in 'cow' or 'flower.'", "The letters 'ou' can make a similar sound, like in 'house' or 'cloud.'", "Listening carefully for these sound patterns helps us read and spell new words correctly."]
-    }]
-  }, {
-    id: "e2_q4c3",
-    title: "Language",
-    lessons: [{
-      id: "e2_q4c3l1",
-      title: "Adjectives and Adverbs",
-      sub: "Descriptive, Limiting, Degrees of Comparison, Kinds of Adverbs",
-      learn: ["An adjective is a word that describes a noun — a descriptive adjective tells us more about a quality, like 'a big dog,' while a limiting adjective tells how many or which one, like 'three dogs' or 'this dog.'", "Degrees of comparison show how adjectives change when comparing things, like 'tall,' 'taller,' and 'tallest,' and a series of adjectives uses more than one adjective to describe a noun, like 'a big, brown dog.'", "An adverb is a word that describes a verb, telling us more about how, when, or where an action happens.", "An adverb of manner tells how something is done, like 'She sings sweetly,' while an adverb of time tells when something happens, like 'She sings every day.'"]
-    }]
-  }]
-}];
+const ENGLISH_QUARTERS = CONTENT_DATA.english;
 
 /* =========================================================
    CONTENT DATA — Filipino/Baitang 2, SY 2026-2027 (Sacred Heart Academy of Pasig)
    ========================================================= */
-const FILIPINO_QUARTERS = [{
-  id: "f2_q1",
-  num: "Unang Markahan",
-  title: "Kabanata 1: Ako, Bilang Mabuting Tao",
-  icon: "🙋",
-  color: "var(--q1)",
-  colorSoft: "var(--q1-soft)",
-  chapters: [{
-    id: "f2_q1c1",
-    title: "Aralin 1",
-    lessons: [{
-      id: "f2_q1c1l1",
-      title: "Patinig at Katinig",
-      sub: "Pagbasa: Handa na Si Jenna (Kuwentong Pambata)",
-      learn: ["Ang 'Handa na Si Jenna' ay isang kuwentong pambata tungkol sa isang batang naghahanda para sa isang mahalagang araw.", "Ang Alpabetong Filipino ay binubuo ng 28 titik na ginagamit natin sa pagsulat at pagbasa ng wikang Filipino.", "Ang mga patinig ay ang mga titik na A, E, I, O, U — malinaw silang naririnig kapag binibigkas nang mag-isa.", "Ang mga katinig naman ay ang lahat ng ibang titik sa alpabeto, tulad ng B, K, D, at G, na kailangan ng patinig upang lumikha ng buong tunog ng pantig."]
-    }]
-  }, {
-    id: "f2_q1c2",
-    title: "Aralin 2",
-    lessons: [{
-      id: "f2_q1c2l1",
-      title: "Diptonggo at Klaster",
-      sub: "Pagbasa: Ang Lawin at ang Paboreal (Pabula)",
-      learn: ["Ang 'Ang Lawin at ang Paboreal' ay isang pabula — isang kuwentong may hayop na tauhan at may aral sa dulo.", "Ang diptonggo ay pagsasama ng patinig at katinig na 'w' o 'y' sa iisang pantig, na binibigkas nang magkasama, tulad ng sa salitang 'bahay' o 'laway.'", "Ang klaster naman ay dalawang magkatabing katinig sa iisang pantig na parehong naririnig, tulad ng 'pl' sa 'plema' o 'tr' sa 'trak.'", "Ang pagkilala sa diptonggo at klaster ay tumutulong sa atin na tama ang pagbigkas at pagbaybay ng mga salita."]
-    }]
-  }, {
-    id: "f2_q1c3",
-    title: "Aralin 3",
-    lessons: [{
-      id: "f2_q1c3l1",
-      title: "Pantukoy",
-      sub: "Si at Sina, Ang at Ang Mga",
-      learn: ["Ang pantukoy ay salitang ginagamit bago ang pangalan ng tao o bagay upang tukuyin ito nang mas malinaw.", "Ginagamit ang 'Si' bago ang isang pangalan ng tao, tulad ng 'Si Jenna,' at ginagamit ang 'Sina' kapag dalawa o higit pa ang taong tinutukoy, tulad ng 'Sina Jenna at Ana.'", "Ginagamit naman ang 'Ang' bago ang isang bagay o pangngalang pambalana, tulad ng 'Ang aso,' habang ginagamit ang 'Ang mga' kapag marami ang tinutukoy, tulad ng 'Ang mga aso.'", "Ang tamang paggamit ng pantukoy ay tumutulong upang maging malinaw ang ating pangungusap."]
-    }]
-  }]
-}, {
-  id: "f2_q2",
-  num: "Ikalawang Markahan",
-  title: "Kabanata 2: Ako at Ang Aking Pamilya",
-  icon: "👨‍👩‍👧",
-  color: "var(--q2)",
-  colorSoft: "var(--q2-soft)",
-  chapters: [{
-    id: "f2_q2c1",
-    title: "Aralin 1",
-    lessons: [{
-      id: "f2_q2c1l1",
-      title: "Pangngalan",
-      sub: "Pagbasa: Ang Nanay kong Grab Driver (Kuwentong Pambata)",
-      learn: ["Ang 'Ang Nanay kong Grab Driver' ay isang kuwentong pambata tungkol sa isang batang ipinagmamalaki ang trabaho ng kaniyang nanay.", "Ang pangngalan ay salitang tumutukoy sa ngalan ng tao, hayop, bagay, o lugar, tulad ng 'Nanay,' 'aso,' 'silya,' at 'paaralan.'", "Ginagamit natin ang pangngalan upang malaman kung sino o ano ang pinag-uusapan sa isang pangungusap.", "Halimbawa ng pangngalan sa kuwento: Nanay, Grab, kotse, at pamilya."]
-    }]
-  }, {
-    id: "f2_q2c2",
-    title: "Aralin 2",
-    lessons: [{
-      id: "f2_q2c2l1",
-      title: "Uri ng Pangngalan",
-      sub: "Pagbasa: Ang Payo ni Tatay (Tulang Pambata)",
-      learn: ["Ang 'Ang Payo ni Tatay' ay isang tulang pambata na naglalaman ng magagandang payo mula sa isang ama.", "May dalawang pangunahing uri ng pangngalan: ang pantangi at ang pambalana.", "Ang pangngalang pantangi ay tumutukoy sa tiyak na pangalan ng tao, lugar, o bagay, at nagsisimula sa malaking titik, tulad ng 'Tatay Jun' o 'Maynila.'", "Ang pangngalang pambalana naman ay pangkalahatang tawag sa mga bagay o tao, tulad ng 'ama,' 'lungsod,' o 'bata,' at hindi nagsisimula sa malaking titik."]
-    }]
-  }, {
-    id: "f2_q2c3",
-    title: "Aralin 3",
-    lessons: [{
-      id: "f2_q2c3l1",
-      title: "Kasarian ng Pangngalan",
-      sub: "",
-      learn: ["Ang kasarian ng pangngalan ay tumutukoy sa kung ang pangngalan ay panlalaki, pambabae, di-tiyak, o walang kasarian.", "Ang pangngalang panlalaki ay tumutukoy sa lalaki, tulad ng 'ama' o 'kuya,' habang ang pambabae ay tumutukoy sa babae, tulad ng 'ina' o 'ate.'", "Ang pangngalang di-tiyak ang kasarian ay maaaring tumukoy sa alinman sa lalaki o babae, tulad ng 'bata' o 'guro.'", "Ang pangngalang walang kasarian naman ay tumutukoy sa mga bagay na walang kasarian, tulad ng 'silya' o 'libro.'"]
-    }]
-  }]
-}, {
-  id: "f2_q3",
-  num: "Ikatlong Markahan",
-  title: "Kabanata 3: Ako At Ang Aking Lipunan",
-  icon: "🏘️",
-  color: "var(--q3)",
-  colorSoft: "var(--q3-soft)",
-  chapters: [{
-    id: "f2_q3c1",
-    title: "Aralin 1",
-    lessons: [{
-      id: "f2_q3c1l1",
-      title: "Panghalip Panao",
-      sub: "Pagbasa: Minda at Uro (Alamat)",
-      learn: ["Ang 'Minda at Uro' ay isang alamat — isang kuwento na nagpapaliwanag kung paano nagsimula ang isang bagay o lugar.", "Ang panghalip panao ay salitang pumapalit sa pangalan ng tao, tulad ng 'ako,' 'ikaw,' 'siya,' 'kami,' 'tayo,' at 'sila.'", "Ginagamit natin ang panghalip panao upang hindi na paulit-ulit ang pagbanggit ng pangalan ng tao sa isang pangungusap.", "Halimbawa: Sa halip na sabihing 'Si Uro ay naglaro. Si Uro ay natuwa,' masasabi nating 'Si Uro ay naglaro. Siya ay natuwa.'"]
-    }]
-  }, {
-    id: "f2_q3c2",
-    title: "Aralin 2",
-    lessons: [{
-      id: "f2_q3c2l1",
-      title: "Panghalip Pamatlig",
-      sub: "Pagbasa: Tablet (Kuwentong Pambata)",
-      learn: ["Ang 'Tablet' ay isang kuwentong pambata tungkol sa paggamit ng gadget sa pang-araw-araw na buhay ng isang bata.", "Ang panghalip pamatlig ay salitang tumuturo sa isang bagay batay sa distansya nito mula sa nagsasalita.", "Ginagamit ang 'ito' kapag malapit ang bagay sa nagsasalita, 'iyan' kapag malapit sa kausap, at 'iyon' kapag malayo sa dalawa.", "Halimbawa: 'Ito ang tablet ko,' 'Iyan ba ang libro mo?', 'Iyon ang bahay nila sa malayo.'"]
-    }]
-  }, {
-    id: "f2_q3c3",
-    title: "Aralin 3",
-    lessons: [{
-      id: "f2_q3c3l1",
-      title: "Panghalip Panaklaw at Pananong",
-      sub: "",
-      learn: ["Ang panghalip panaklaw ay tumutukoy sa isang bagay nang hindi eksaktong tinutukoy kung sino o ano ito, tulad ng 'lahat,' 'iba,' 'ilan,' at 'walang.'", "Ang panghalip pananong naman ay ginagamit sa pagtatanong, tulad ng 'sino,' 'ano,' 'saan,' 'kailan,' at 'bakit.'", "Halimbawa ng panghalip panaklaw: 'Lahat ng bata ay masaya.' Halimbawa ng panghalip pananong: 'Sino ang kaibigan mo?'", "Ang tamang paggamit ng mga panghalip na ito ay tumutulong upang maging malinaw at magalang ang ating pananalita."]
-    }]
-  }]
-}, {
-  id: "f2_q4",
-  num: "Ikaapat na Markahan",
-  title: "Kabanata 4: Ako At Ang Aking Kapaligiran",
-  icon: "🌳",
-  color: "var(--q4)",
-  colorSoft: "var(--q4-soft)",
-  chapters: [{
-    id: "f2_q4c1",
-    title: "Aralin 1",
-    lessons: [{
-      id: "f2_q4c1l1",
-      title: "Pandiwa",
-      sub: "Pagbasa: Kumukutikutitap (Kuwentong Pambata)",
-      learn: ["Ang 'Kumukutikutitap' ay isang kuwentong pambata na tumutukoy sa mga bagay na kumikinang o kumikislap sa ating kapaligiran.", "Ang pandiwa ay salitang nagsasaad ng kilos o galaw, tulad ng 'kumain,' 'tumakbo,' at 'kumukutikutitap.'", "Ang pandiwa ay isa sa pinakamahalagang bahagi ng pananalita dahil ipinapakita nito kung ano ang ginagawa ng tauhan sa kuwento.", "Halimbawa ng pandiwa sa pangungusap: 'Ang mga bituin ay kumukutikutitap sa gabi.'"]
-    }]
-  }, {
-    id: "f2_q4c2",
-    title: "Aralin 2",
-    lessons: [{
-      id: "f2_q4c2l1",
-      title: "Aspekto ng Pandiwa",
-      sub: "Pagbasa: Isang Paraiso (Tulang Pambata); Naganap, Nagaganap, at Magaganap",
-      learn: ["Ang 'Isang Paraiso' ay isang tulang pambata na naglalarawan sa kagandahan ng kalikasan.", "Ang aspekto ng pandiwa ay nagsasabi kung kailan naganap ang kilos — kung ito ba ay natapos na, kasalukuyang nangyayari, o mangyayari pa lamang.", "Ang aspektong naganap ay ipinapakita ang kilos na tapos na, tulad ng 'kumain,' habang ang nagaganap ay kasalukuyang ginagawa, tulad ng 'kumakain.'", "Ang aspektong magaganap naman ay ipinapakita ang kilos na hindi pa nagaganap ngunit gagawin, tulad ng 'kakain.'"]
-    }]
-  }, {
-    id: "f2_q4c3",
-    title: "Aralin 3",
-    lessons: [{
-      id: "f2_q4c3l1",
-      title: "Pangungusap at Parirala",
-      sub: "",
-      learn: ["Ang pangungusap ay isang grupo ng mga salita na may kumpletong diwa o kaisipan, at may simuno (paksa) at panaguri (sinasabi tungkol sa paksa).", "Halimbawa ng pangungusap: 'Ang bata ay masayang naglalaro.' — dito, ang 'ang bata' ang simuno at ang 'masayang naglalaro' ang panaguri.", "Ang parirala naman ay grupo ng mga salitang magkakaugnay ngunit hindi kumpleto ang diwa, tulad ng 'sa parke' o 'ang gandang bulaklak.'", "Ang pagkakaiba ng pangungusap at parirala ay mahalagang malaman upang makabuo tayo ng malinaw at kumpletong pananalita."]
-    }]
-  }]
-}];
+const FILIPINO_QUARTERS = CONTENT_DATA.filipino;
 
 /* =========================================================
    CONTENT DATA — GMRC 2, SY 2026-2027 (Sacred Heart Academy of Pasig)
    ========================================================= */
-const GMRC_QUARTERS = [{
-  id: "g2_q1",
-  num: "First Quarter",
-  title: "Unit 1: Knowing Oneself and One's Responsibilities",
-  icon: "🙂",
-  color: "var(--q1)",
-  colorSoft: "var(--q1-soft)",
-  chapters: [{
-    id: "g2_q1c1",
-    title: "Lesson 1: I Know the Fundamental Information About My Family",
-    lessons: [{
-      id: "g2_q1c1l1",
-      title: "Facts and Importance of Knowing My Family",
-      sub: "",
-      learn: ["Every child should know basic facts about their family, like the full names, birthdays, and roles of their family members.", "Knowing facts about our family, such as our full name, address, and the names of our parents, helps keep us safe and prepared in different situations.", "Learning about our family history and background helps us understand where we come from and appreciate our roots.", "Being able to share information about our family also helps us build trust and connect with our teachers and classmates."]
-    }]
-  }, {
-    id: "g2_q1c2",
-    title: "Lesson 2: I Take Care of My Health with the Guidance of My Family",
-    lessons: [{
-      id: "g2_q1c2l1",
-      title: "Self-Care and Staying Healthy",
-      sub: "Five Important Reasons to Take Care of One's Health",
-      learn: ["Self-care means taking steps to stay clean, healthy, and safe, like brushing our teeth, washing our hands, and eating good food, with the guidance of our family.", "Taking care of our health is important because it helps our body grow strong, keeps us from getting sick, gives us energy to play and learn, makes us feel good, and helps us live a longer and happier life.", "Our family helps us be healthy by preparing nutritious meals, reminding us to rest and sleep well, and bringing us to the doctor for check-ups.", "We can be healthy with our family by exercising together, eating balanced meals, and following good hygiene habits every day."]
-    }]
-  }, {
-    id: "g2_q1c3",
-    title: "Lesson 3: I Understand My Own Emotions",
-    lessons: [{
-      id: "g2_q1c3l1",
-      title: "Exploring and Understanding Feelings",
-      sub: "",
-      learn: ["Emotions are the feelings we have inside us, like happiness, sadness, anger, and fear.", "Exploring emotions means noticing and naming how we feel in different situations, so we can understand ourselves better.", "It is normal to feel many different emotions, and there is no feeling that is 'wrong' to have.", "Understanding how we feel helps us express our emotions in healthy ways and helps us understand how others might be feeling too."]
-    }]
-  }, {
-    id: "g2_q1c4",
-    title: "Lesson 4: I Pray to God for Myself and Others",
-    lessons: [{
-      id: "g2_q1c4l1",
-      title: "The Gift of Prayer",
-      sub: "Benefits and Ways to Practice Personal Prayer",
-      learn: ["Praying to God is a way of talking to Him, thanking Him, and asking for His guidance for ourselves and for others.", "Prayer gives us peace, comfort, and strength, especially when we are facing challenges or feeling worried.", "There are different ways to practice personal prayer, like praying quietly on our own, praying before meals, or praying together with family.", "Praying for others, and not just for ourselves, teaches us to care about the needs and wellbeing of people around us."]
-    }]
-  }, {
-    id: "g2_q1c5",
-    title: "Lesson 5: I Help Save the Environment",
-    lessons: [{
-      id: "g2_q1c5l1",
-      title: "Caring for Our Surroundings",
-      sub: "What Hurts the Environment and How to Be Ecologically Friendly",
-      learn: ["Many things can hurt the environment, like littering, cutting down too many trees, and wasting water and electricity.", "We can be ecologically friendly by throwing our trash in the right bins, saving water, and turning off lights and electronics when not in use.", "Small actions, like picking up litter or planting a seed, can make a big difference in caring for our environment.", "Taking care of the environment now helps make sure the Earth stays healthy for us and for future generations."]
-    }]
-  }, {
-    id: "g2_q1c6",
-    title: "Lesson 6: I Have Responsibilities to the Community as a Filipino Child",
-    lessons: [{
-      id: "g2_q1c6l1",
-      title: "My Duty and Love for My Country",
-      sub: "",
-      learn: ["As Filipino children, we have responsibilities to our community, like following rules, respecting others, and helping keep our surroundings clean.", "Loving our country means being proud of being Filipino and caring about the wellbeing of our fellow countrymen.", "Doing our duty, even in small ways like being a responsible student or a helpful neighbor, is one way of showing our love for our country.", "When every child does their part, our whole community and country become better places to live in."]
-    }]
-  }]
-}, {
-  id: "g2_q2",
-  num: "Second Quarter",
-  title: "Unit 2: The Importance of Family in One's Growth",
-  icon: "👨‍👩‍👧‍👦",
-  color: "var(--q2)",
-  colorSoft: "var(--q2-soft)",
-  chapters: [{
-    id: "g2_q2c1",
-    title: "Lesson 1: I Know My Talent with the Help of My Family",
-    lessons: [{
-      id: "g2_q2c1l1",
-      title: "Discovering My Talents",
-      sub: "How My Family Helps My Talent Grow",
-      learn: ["A talent is something we are naturally good at or enjoy doing, like singing, drawing, dancing, or playing sports.", "Our family helps us develop our talents by encouraging us, giving us chances to practice, and cheering us on.", "Parents play an important role in helping their child's talent grow by providing support, guidance, and sometimes even lessons or materials.", "Discovering and developing our talents with the help of our family builds our confidence and helps us feel proud of ourselves."]
-    }]
-  }, {
-    id: "g2_q2c2",
-    title: "Lesson 2: I Have Good Communication with My Family",
-    lessons: [{
-      id: "g2_q2c2l1",
-      title: "Talking and Listening at Home",
-      sub: "Harmony with the Family",
-      learn: ["Good communication means sharing our thoughts and feelings honestly, and listening carefully when our family members speak.", "Talking openly with our family helps us solve problems, share happy news, and ask for help when we need it.", "Harmony with the family means living together peacefully, understanding one another, and avoiding unnecessary quarrels.", "Good communication helps build harmony because it helps everyone in the family feel heard and understood."]
-    }]
-  }, {
-    id: "g2_q2c3",
-    title: "Lesson 3: I Love My Family as a Guide in Relating with Others",
-    lessons: [{
-      id: "g2_q2c3l1",
-      title: "Learning Honesty from Family",
-      sub: "",
-      learn: ["Our family teaches us important values that guide how we treat other people, like kindness, respect, and honesty.", "Honesty means telling the truth and being sincere in our words and actions, even when it is hard to do so.", "Learning to be honest at home, like admitting our mistakes to our parents, helps us become honest with our friends and other people too.", "Loving our family means valuing the lessons they teach us and using them as a guide in how we relate with others."]
-    }]
-  }, {
-    id: "g2_q2c4",
-    title: "Lesson 4: I Am One with My Family's Religious Activities and Beliefs",
-    lessons: [{
-      id: "g2_q2c4l1",
-      title: "Sharing Faith with My Family",
-      sub: "Religious Activities in the Philippines and Other Countries",
-      learn: ["Many families share religious beliefs and take part in religious activities together, like going to church, praying, or celebrating religious feasts.", "In the Philippines, common religious activities include attending Mass, joining processions, and celebrating fiestas in honor of patron saints.", "Different countries around the world also have their own religious activities and beliefs that are important to their families.", "Being one with our family's religious activities helps strengthen our faith and brings our family closer together."]
-    }]
-  }, {
-    id: "g2_q2c5",
-    title: "Lesson 5: I Keep the House Clean Toward an Orderly Environment",
-    lessons: [{
-      id: "g2_q2c5l1",
-      title: "Cleanliness and Orderliness at Home",
-      sub: "Core Values of Cleanliness",
-      learn: ["Keeping our house clean and orderly means putting things back in their proper place and cleaning up after ourselves.", "Cleanliness and orderliness at home help keep our family healthy and make our home a more pleasant place to live in.", "Core values of cleanliness include responsibility, discipline, and care — doing our share to keep our home tidy without being told.", "Every family member, including children, can help keep the house clean by doing simple chores like sweeping or arranging their things."]
-    }]
-  }, {
-    id: "g2_q2c6",
-    title: "Lesson 6: I Practice Hospitality in Welcoming Our Family's Visitors",
-    lessons: [{
-      id: "g2_q2c6l1",
-      title: "Welcoming Guests with Love and Care",
-      sub: "",
-      learn: ["Hospitality means welcoming and treating visitors kindly and generously.", "When guests visit our home, we can practice hospitality by greeting them warmly, offering them a seat, and being polite.", "Treating visitors with love and care shows respect not just for them, but also for our family's good name.", "Being a hospitable host makes our visitors feel comfortable and shows that our family values kindness toward others."]
-    }]
-  }]
-}, {
-  id: "g2_q3",
-  num: "Third Quarter",
-  title: "Unit 3: The Good Way of Relating Well with Others",
-  icon: "🤝",
-  color: "var(--q3)",
-  colorSoft: "var(--q3-soft)",
-  chapters: [{
-    id: "g2_q3c1",
-    title: "Lesson 1: I Relate Well with Others",
-    lessons: [{
-      id: "g2_q3c1l1",
-      title: "Proper Ways to Interact with Others",
-      sub: "",
-      learn: ["Relating well with others means treating people with kindness, courtesy, and respect in the way we speak and act toward them.", "Proper ways to interact with others include greeting people politely, using words like 'please' and 'thank you,' and listening when someone is speaking.", "Being fair, patient, and considerate helps us build good relationships with our classmates, friends, and family.", "When we relate well with others, we help create a friendly and peaceful environment wherever we are."]
-    }]
-  }, {
-    id: "g2_q3c2",
-    title: "Lesson 2: I Do Good to My Fellowmen",
-    lessons: [{
-      id: "g2_q3c2l1",
-      title: "Kindness and Goodness to Others",
-      sub: "The Lion and the Mouse; Characteristics of a Good Person",
-      learn: ["'The Lion and the Mouse' is a classic fable that teaches us that even someone small can help someone big, and that kindness is always worth giving.", "A good person shows characteristics like kindness, honesty, helpfulness, and respect toward others, no matter who they are.", "Acts of kindness and goodness can be simple, like sharing our things, helping a classmate, or comforting someone who is sad.", "Doing good to our fellowmen, even in small ways, makes the world a kinder and better place for everyone."]
-    }]
-  }, {
-    id: "g2_q3c3",
-    title: "Lesson 3: I Recognize the Goodness of Others",
-    lessons: [{
-      id: "g2_q3c3l1",
-      title: "Appreciating Kindness Shown to Us",
-      sub: "Androcles and the Lion; Showing Gratitude",
-      learn: ["'Androcles and the Lion' is a classic fable that teaches us that helping others with kindness can be returned with kindness someday, too.", "Appreciation means recognizing and valuing the good things that other people do for us.", "Showing gratitude toward the good deeds of others can be as simple as saying 'thank you' or writing a kind note.", "Recognizing the goodness of others encourages people to keep doing good, and helps build strong and caring relationships."]
-    }]
-  }, {
-    id: "g2_q3c4",
-    title: "Lesson 4: I Recognize Different Religions and Other Religious Beliefs",
-    lessons: [{
-      id: "g2_q3c4l1",
-      title: "Respecting Different Faiths",
-      sub: "Five Major Religions Being Practiced Around the World",
-      learn: ["There are many different religions in the world, and each has its own beliefs, practices, and ways of worship.", "Some of the major religions practiced around the world include Christianity, Islam, Buddhism, Hinduism, and Judaism.", "Respecting different religions and beliefs means being open-minded and courteous toward people whose faith is different from our own.", "Even with different religious beliefs, all people deserve to be treated with kindness, fairness, and respect."]
-    }]
-  }, {
-    id: "g2_q3c5",
-    title: "Lesson 5: I Take Care of the Environment with the Help of My Fellow Children",
-    lessons: [{
-      id: "g2_q3c5l1",
-      title: "Working Together for the Earth",
-      sub: "The Earth is Dying; 3Rs and Conservation",
-      learn: ["The Earth faces many problems today, like pollution, cutting down too many trees, and too much waste — this is sometimes described as 'the Earth is dying' if we do not take care of it.", "Encouraging fellow children to work together to protect the environment makes a bigger difference than working alone.", "The 3Rs — Reduce, Reuse, and Recycle — are simple habits that help us take care of the environment and conserve our resources.", "When children work together on conservation, like planting trees or cleaning up litter, they help protect the Earth for the future."]
-    }]
-  }, {
-    id: "g2_q3c6",
-    title: "Lesson 6: I Join the Bayanihan with My Fellow Children in the Community",
-    lessons: [{
-      id: "g2_q3c6l1",
-      title: "The Spirit of Bayanihan",
-      sub: "",
-      learn: ["Bayanihan is a Filipino tradition and value of people working together and helping one another, especially in times of need.", "The word bayanihan comes from the image of neighbors helping to carry a nipa hut to a new location, working as one team.", "Children can join the spirit of bayanihan by helping classmates, sharing resources, and cooperating on community activities.", "Practicing bayanihan with our fellow children strengthens unity and makes our community stronger and more caring."]
-    }]
-  }]
-}, {
-  id: "g2_q4",
-  num: "Fourth Quarter",
-  title: "Unit 4: Making the Right Choices to Be an Asset to the Country",
-  icon: "🇵🇭",
-  color: "var(--q4)",
-  colorSoft: "var(--q4-soft)",
-  chapters: [{
-    id: "g2_q4c1",
-    title: "Lesson 1: I Am Disciplined in the Use of Public Facilities",
-    lessons: [{
-      id: "g2_q4c1l1",
-      title: "Caring for Public Facilities",
-      sub: "Five Main Types of Basic Public Facilities",
-      learn: ["Public facilities are places or services built for everyone in the community to use, like parks, roads, schools, hospitals, and public restrooms.", "The five main types of basic public facilities include transportation facilities, health facilities, educational facilities, recreational facilities, and utility facilities like water and electricity.", "Using public facilities with care and self-discipline means following rules, not littering, and not damaging or misusing them.", "When we take care of public facilities, we make sure they stay clean, safe, and useful for everyone in the community."]
-    }]
-  }, {
-    id: "g2_q4c2",
-    title: "Lesson 2: I Cooperate with My Family for the Good of the Community",
-    lessons: [{
-      id: "g2_q4c2l1",
-      title: "Family Teamwork for the Community",
-      sub: "Volunteerism",
-      learn: ["Our family's cooperation with the community means working together with neighbors and other families for the good of everyone.", "Families can cooperate with the community by joining clean-up drives, community meetings, or helping neighbors in need.", "Volunteerism means offering our time and effort to help others without expecting anything in return.", "When families cooperate and volunteer together, they help build a stronger and more caring community."]
-    }]
-  }, {
-    id: "g2_q4c3",
-    title: "Lesson 3: I Participate in Community Events and Celebrations that Enhance Goodwill and Camaraderie",
-    lessons: [{
-      id: "g2_q4c3l1",
-      title: "Joining Community Celebrations",
-      sub: "",
-      learn: ["Community events and celebrations, like fiestas, sports fests, and holiday programs, bring neighbors together to have fun and bond.", "Participating in these events helps build goodwill, which means friendly and helpful feelings between people.", "Camaraderie means the feeling of friendship and trust among people who share good times together.", "By joining community events, children help strengthen the friendly bonds that make a community feel like a big family."]
-    }]
-  }, {
-    id: "g2_q4c4",
-    title: "Lesson 4: I Appreciate the Works and Beliefs of Different Religions for the Good of the Community",
-    lessons: [{
-      id: "g2_q4c4l1",
-      title: "How Religions Help the Community",
-      sub: "Different Religions in the Philippines",
-      learn: ["The Philippines is home to people practicing different religions, including Catholicism, Islam, Protestantism, and other faiths.", "Even though religions may have different beliefs, there is often a common bond among them — like teaching love, kindness, and helping others.", "Different religious groups often help their communities through charity work, feeding programs, and disaster relief efforts.", "Appreciating the good works of different religions helps us see how faith can bring people together to help one another."]
-    }]
-  }, {
-    id: "g2_q4c5",
-    title: "Lesson 5: I Help Take Care of the Environment in My Community",
-    lessons: [{
-      id: "g2_q4c5l1",
-      title: "Doing My Part for a Healthy Community",
-      sub: "Age-Appropriate Environmental Tasks",
-      learn: ["Taking care of the natural world means protecting the plants, animals, air, and water in our community.", "Even children can help take care of the environment through age-appropriate tasks, like watering plants, segregating trash, or picking up litter.", "Doing small environmental tasks regularly helps build good habits that protect the environment for a lifetime.", "When every member of the community helps take care of the environment, the whole community benefits from cleaner air, water, and surroundings."]
-    }]
-  }, {
-    id: "g2_q4c6",
-    title: "Lesson 6: I Acknowledge and Value Acts of Heroism in My Country",
-    lessons: [{
-      id: "g2_q4c6l1",
-      title: "Honoring Our National Heroes",
-      sub: "Respect, Gratitude, and Patriotism",
-      learn: ["National heroes of the Philippines, like Dr. Jose Rizal and Andres Bonifacio, are honored for their brave acts and sacrifices for our country's freedom.", "Acknowledging the acts of heroism of these national heroes helps us understand and appreciate the history of our country.", "We can show respect and gratitude toward our heroes by learning about their lives and following their good examples.", "Patriotism means having love and loyalty for our country, which we can show by valuing our heroes and doing our own part for the Philippines."]
-    }]
-  }]
-}];
+const GMRC_QUARTERS = CONTENT_DATA.gmrc;
 
 /* =========================================================
    GENERAL — Grade 3 Readiness Word List (Sacred Heart Academy of Pasig)
    A plain reference checklist (not a lesson/quiz subject) of words and
    terms a student should already know by heart before starting Grade 3.
    ========================================================= */
-const GENERAL_CATEGORIES = [{
-  id: "sight_words",
-  icon: "\ud83d\udc41\ufe0f",
-  title: "High-Frequency Sight Words",
-  note: "Words that should be read instantly on sight, without sounding out.",
-  words: ["about", "after", "again", "always", "animal", "around", "because", "before", "better", "bring", "carry", "clean", "cold", "could", "every", "fast", "first", "found", "gave", "goes", "green", "grow", "hold", "hot", "hurt", "keep", "kind", "laugh", "light", "long", "made", "many", "much", "myself", "never", "only", "open", "over", "own", "pick", "please", "pretty", "ran", "read", "right", "sing", "sit", "sleep", "small", "start", "their", "these", "think", "today", "together", "try", "warm", "wash", "water", "would"]
-}, {
-  id: "spelling_en",
-  icon: "\u270f\ufe0f",
-  title: "English Spelling Words",
-  note: "Simple words a Grade 2 finisher should be able to spell correctly from memory.",
-  words: ["friend", "happy", "school", "because", "people", "little", "said", "again", "would", "could", "should", "every", "family", "different", "favorite", "beautiful", "also", "other", "water", "which", "there", "their", "where", "were", "when", "what", "who", "why", "does", "goes", "comes", "gives", "makes", "writes", "plays", "house", "mouse", "ball", "call", "tall"]
-}, {
-  id: "vocab_en",
-  icon: "\ud83d\udcda",
-  title: "English Vocabulary Words",
-  note: "Everyday vocabulary words a Grade 2 finisher should already understand and use in sentences.",
-  words: ["happy", "sad", "angry", "excited", "brave", "gentle", "careful", "curious", "proud", "shy", "loud", "quiet", "huge", "tiny", "bright", "dark", "fast", "slow", "strong", "weak", "kind", "polite", "honest", "helpful", "clean", "messy", "fresh", "stale", "empty", "full"]
-}, {
-  id: "grammar_terms",
-  icon: "\ud83d\udd24",
-  title: "Grammar & Language Terms",
-  note: "Basic terms every student should be able to point out in a simple sentence.",
-  words: ["noun", "verb", "adjective", "pronoun", "sentence", "question mark", "period", "exclamation point", "comma", "capital letter", "synonym", "antonym", "rhyming word", "plural", "singular", "opposite"]
-}, {
-  id: "spelling_fil",
-  icon: "\ud83c\udff5\ufe0f",
-  title: "Mga Salitang Filipino",
-  note: "Mga simpleng salitang dapat nang alam at wastong maisusulat ng mag-aaral bago pumasok sa Grade 3.",
-  words: ["pamilya", "paaralan", "guro", "kaibigan", "kalikasan", "pagkain", "kalusugan", "kapaligiran", "bahay", "bayan", "bansa", "bandila", "kaarawan", "pasasalamat", "paggalang", "kagandahang-asal", "tulong", "pagmamahal", "katotohanan", "kasipagan", "kalinisan", "kabutihan", "katapatan", "pananagutan"]
-}, {
-  id: "vocab_math",
-  icon: "\ud83d\udd22",
-  title: "Math Vocabulary",
-  note: "Math terms a Grade 2 finisher should be able to define and use.",
-  words: ["add", "subtract", "sum", "difference", "total", "more than", "less than", "equal", "greater", "smaller", "half", "whole", "shape", "circle", "square", "triangle", "rectangle", "pattern", "number line", "ones", "tens", "hundreds", "odd number", "even number"]
-}, {
-  id: "vocab_science",
-  icon: "\ud83d\udd2c",
-  title: "Science Vocabulary",
-  note: "Core science terms a Grade 2 finisher should recognize and explain in their own words.",
-  words: ["plant", "animal", "living thing", "non-living thing", "habitat", "weather", "season", "sun", "moon", "stars", "water cycle", "seed", "root", "stem", "leaf", "five senses", "sight", "hearing", "smell", "taste", "touch", "solid", "liquid", "gas"]
-}, {
-  id: "vocab_values",
-  icon: "\ud83e\udded",
-  title: "GMRC / Values Vocabulary",
-  note: "Character and values words a student should understand and be able to explain with an example.",
-  words: ["honesty", "respect", "gratitude", "kindness", "obedience", "cooperation", "sharing", "patience", "cleanliness", "politeness", "responsibility", "courtesy", "helpfulness", "fairness"]
-}, {
-  id: "ph_geography",
-  icon: "\ud83d\uddfa\ufe0f",
-  title: "Philippine Geography Basics",
-  note: "Places and landmarks every young Filipino student should recognize.",
-  words: ["Luzon", "Visayas", "Mindanao", "Manila", "Pasig", "Quezon City", "Cebu", "Davao", "Baguio", "Palawan", "Boracay", "Mayon Volcano", "Pasig River", "Philippines", "Asia"]
-}, {
-  id: "ph_symbols",
-  icon: "\ud83e\udd85",
-  title: "Philippine National Symbols",
-  note: "Symbols that represent our country \u2014 a common quiz-bee topic.",
-  words: ["National Hero \u2013 Jose Rizal", "National Flower \u2013 Sampaguita", "National Bird \u2013 Philippine Eagle", "National Tree \u2013 Narra", "National Fruit \u2013 Mango", "National Animal \u2013 Carabao", "National Dance \u2013 Tinikling", "National Language \u2013 Filipino", "National Costume (Male) \u2013 Barong Tagalog", "National Costume (Female) \u2013 Baro't Saya"]
-}, {
-  id: "days_months",
-  icon: "\ud83d\udcc5",
-  title: "Days, Months & Seasons (English & Filipino)",
-  note: "Should be recited instantly in either language.",
-  words: ["Sunday \u2013 Linggo", "Monday \u2013 Lunes", "Tuesday \u2013 Martes", "Wednesday \u2013 Miyerkules", "Thursday \u2013 Huwebes", "Friday \u2013 Biyernes", "Saturday \u2013 Sabado", "January \u2013 Enero", "February \u2013 Pebrero", "March \u2013 Marso", "April \u2013 Abril", "May \u2013 Mayo", "June \u2013 Hunyo", "July \u2013 Hulyo", "August \u2013 Agosto", "September \u2013 Setyembre", "October \u2013 Oktubre", "November \u2013 Nobyembre", "December \u2013 Disyembre", "Dry Season \u2013 Tag-init/Tag-araw", "Wet Season \u2013 Tag-ulan"]
-}, {
-  id: "number_facts",
-  icon: "\u2795",
-  title: "Number Words & Key Math Facts",
-  note: "Ordinal numbers and simple addition facts students should have memorized cold.",
-  words: ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "5 + 5 = 10", "6 + 6 = 12", "7 + 7 = 14", "8 + 8 = 16", "9 + 9 = 18", "10 + 10 = 20", "2 x 2 = 4", "2 x 5 = 10", "3 x 3 = 9", "5 x 5 = 25"]
-}, {
-  id: "money_time",
-  icon: "\ud83d\udd50",
-  title: "Money & Time Vocabulary",
-  note: "Everyday practical vocabulary for telling time and handling money.",
-  words: ["piso", "sentimo", "coin", "bill", "save", "spend", "allowance", "o'clock", "half past", "quarter past", "morning", "afternoon", "evening", "noon", "midnight"]
-}, {
-  id: "shapes_colors",
-  icon: "\ud83c\udfa8",
-  title: "Shapes & Colors",
-  note: "Basic shapes and colors a Grade 2 student should name instantly.",
-  words: ["circle", "square", "triangle", "rectangle", "oval", "star", "heart", "diamond", "red", "orange", "yellow", "green", "blue", "violet", "pink", "brown", "black", "white"]
-}, {
-  id: "community_helpers",
-  icon: "\ud83d\udc69\u200d\u2695\ufe0f",
-  title: "Community Helpers",
-  note: "People who help our community \u2014 and what each one does.",
-  words: ["doctor", "nurse", "teacher", "police officer", "firefighter", "farmer", "fisherman", "vendor", "driver", "mail carrier", "dentist", "engineer", "barangay official", "garbage collector"]
-}, {
-  id: "punctuation",
-  icon: "\u275d",
-  title: "Punctuation Quick-Reference",
-  note: "Marks students should recognize by name and know when to use.",
-  words: ["period ( . )", "comma ( , )", "question mark ( ? )", "exclamation point ( ! )", "capital letter"]
-}];
+const GENERAL_CATEGORIES = CONTENT_DATA.generalCategories;
 const STORAGE_KEY_GENERAL = "gs2_general_known_v1";
 function loadGeneralKnown() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_GENERAL);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return {};
+  return (CONTENT_DATA.seed && CONTENT_DATA.seed.generalKnown) || {};
 }
 function saveGeneralKnown(g) {
   try {
@@ -3032,47 +1957,7 @@ function saveGeneralKnown(g) {
    every time it's played, so a set never runs out of variety.
    ========================================================= */
 const MATH_TINIK_SET_COUNT = 10;
-const MATH_TINIK_LEVELS = [{
-  id: 1,
-  title: "2-Digit Addition",
-  short: "2-digit + 2-digit, no regrouping",
-  icon: "➕"
-}, {
-  id: 2,
-  title: "2-Digit Addition — With Regrouping",
-  short: "2-digit + 2-digit, carries to the tens",
-  icon: "➕"
-}, {
-  id: 3,
-  title: "3-Digit Addition — With Regrouping",
-  short: "3-digit + 3-digit, sum up to 999",
-  icon: "➕"
-}, {
-  id: 4,
-  title: "2-Digit Subtraction",
-  short: "2-digit − 2-digit, no regrouping",
-  icon: "➖"
-}, {
-  id: 5,
-  title: "2-Digit Subtraction — With Regrouping",
-  short: "2-digit − 2-digit, borrows from the tens",
-  icon: "➖"
-}, {
-  id: 6,
-  title: "3-Digit Subtraction — With Regrouping",
-  short: "3-digit − 3-digit, borrows from the tens",
-  icon: "➖"
-}, {
-  id: 7,
-  title: "Multiplication Facts",
-  short: "1 to 10 times table",
-  icon: "✖️"
-}, {
-  id: 8,
-  title: "Division Facts",
-  short: "basic facts, exact (no remainder)",
-  icon: "➗"
-}];
+const MATH_TINIK_LEVELS = CONTENT_DATA.mathTinikLevels;
 function mtRandInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -3201,7 +2086,7 @@ function loadMathTinikProblems() {
     const raw = localStorage.getItem(STORAGE_KEY_MATH_TINIK_PROBLEMS);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return null;
+  return (CONTENT_DATA.seed && CONTENT_DATA.seed.mathTinikProblems) || null;
 }
 function saveMathTinikProblems(m) {
   try {
@@ -3222,27 +2107,7 @@ function saveMathTinikProblems(m) {
    time it's played.
    ========================================================= */
 const TIME_TINIK_SET_COUNT = 10;
-const TIME_TINIK_LEVELS = [{
-  id: 1,
-  title: "Adding Minutes",
-  short: "no carry past the hour",
-  icon: "🕐"
-}, {
-  id: 2,
-  title: "Adding Minutes — With Carry",
-  short: "carries into the next hour",
-  icon: "🕑"
-}, {
-  id: 3,
-  title: "Subtracting Minutes",
-  short: "no borrowing",
-  icon: "🕔"
-}, {
-  id: 4,
-  title: "Subtracting Minutes — With Borrowing",
-  short: "borrows from the hour",
-  icon: "🕕"
-}];
+const TIME_TINIK_LEVELS = CONTENT_DATA.timeTinikLevels;
 function ttPad2(n) {
   return String(n).padStart(2, "0");
 }
@@ -3340,7 +2205,7 @@ function loadTimeTinikProblems() {
     const raw = localStorage.getItem(STORAGE_KEY_TIME_TINIK_PROBLEMS);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return null;
+  return (CONTENT_DATA.seed && CONTENT_DATA.seed.timeTinikProblems) || null;
 }
 function saveTimeTinikProblems(m) {
   try {
@@ -3359,22 +2224,7 @@ function saveTimeTinikProblems(m) {
    or a comparison symbol ("<", ">", "=") depending on the level.
    ========================================================= */
 const FRACTION_TINIK_SET_COUNT = 10;
-const FRACTION_TINIK_LEVELS = [{
-  id: 1,
-  title: "Identify the Fraction",
-  short: "how many parts out of the whole",
-  icon: "🍕"
-}, {
-  id: 2,
-  title: "Compare Fractions — Like Denominators",
-  short: "<, >, or =",
-  icon: "⚖️"
-}, {
-  id: 3,
-  title: "Compare Unit Fractions",
-  short: "1/2, 1/3, 1/4 ... which piece is bigger?",
-  icon: "⚖️"
-}];
+const FRACTION_TINIK_LEVELS = CONTENT_DATA.fractionTinikLevels;
 function ftGcd(a, b) {
   a = Math.abs(a);
   b = Math.abs(b);
@@ -3453,7 +2303,7 @@ function loadFractionTinikProblems() {
     const raw = localStorage.getItem(STORAGE_KEY_FRACTION_TINIK_PROBLEMS);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return null;
+  return (CONTENT_DATA.seed && CONTENT_DATA.seed.fractionTinikProblems) || null;
 }
 function saveFractionTinikProblems(m) {
   try {
@@ -3477,115 +2327,7 @@ function saveFractionTinikProblems(m) {
    (e.g. "beautiful", "different", "favorite").
    ========================================================= */
 const SPELLING_TINIK_SET_COUNT = 10;
-const SPELLING_TINIK_LEVELS = [{
-  id: 1,
-  title: "Easy Words",
-  short: "colors, shapes & everyday words",
-  icon: "🔤",
-  bank: [{
-    word: "red",
-    clue: "a color, like a fire truck"
-  }, {
-    word: "cat",
-    clue: "a pet that says meow"
-  }, {
-    word: "sun",
-    clue: "shines bright in the sky at daytime"
-  }, {
-    word: "dog",
-    clue: "a pet that barks"
-  }, {
-    word: "hat",
-    clue: "you wear it on your head"
-  }, {
-    word: "box",
-    clue: "a container with four sides"
-  }, {
-    word: "pig",
-    clue: "a farm animal that oinks"
-  }, {
-    word: "cup",
-    clue: "you drink from it"
-  }, {
-    word: "run",
-    clue: "to move fast on your feet"
-  }, {
-    word: "big",
-    clue: "the opposite of small"
-  }]
-}, {
-  id: 2,
-  title: "Medium Words",
-  short: "everyday describing & action words",
-  icon: "✏️",
-  bank: [{
-    word: "happy",
-    clue: "feeling glad or joyful"
-  }, {
-    word: "green",
-    clue: "the color of grass"
-  }, {
-    word: "jump",
-    clue: "to hop up in the air"
-  }, {
-    word: "table",
-    clue: "furniture you eat on"
-  }, {
-    word: "yellow",
-    clue: "the color of a banana"
-  }, {
-    word: "pencil",
-    clue: "you write with it"
-  }, {
-    word: "window",
-    clue: "you look through it to see outside"
-  }, {
-    word: "summer",
-    clue: "the hot season of the year"
-  }, {
-    word: "purple",
-    clue: "a mix of red and blue"
-  }, {
-    word: "garden",
-    clue: "a place where plants grow"
-  }]
-}, {
-  id: 3,
-  title: "Challenge Words",
-  short: "common Grade 2 spelling words",
-  icon: "📝",
-  bank: [{
-    word: "friend",
-    clue: "someone you like to play with"
-  }, {
-    word: "school",
-    clue: "the place where you go to learn"
-  }, {
-    word: "little",
-    clue: "small in size"
-  }, {
-    word: "family",
-    clue: "people who live together and love each other"
-  }, {
-    word: "animal",
-    clue: "a living creature like a dog or bird"
-  }, {
-    word: "letter",
-    clue: "a symbol used to write words"
-  }, {
-    word: "kitchen",
-    clue: "the room where meals are cooked"
-  }, {
-    word: "circle",
-    clue: "a round shape with no corners"
-  }, {
-    word: "morning",
-    clue: "the start of the day"
-  }, {
-    word: "picture",
-    clue: "a drawing or photograph"
-  }]
-}];
+const SPELLING_TINIK_LEVELS = CONTENT_DATA.spellingTinikLevels;
 // Fisher-Yates shuffle-and-take: returns `count` distinct entries picked
 // at random from `arr`, without mutating the original array.
 function sgSampleWithoutReplacement(arr, count) {
@@ -3624,7 +2366,7 @@ function loadSpellingTinikProblems() {
     const raw = localStorage.getItem(STORAGE_KEY_SPELLING_TINIK_PROBLEMS);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return null;
+  return (CONTENT_DATA.seed && CONTENT_DATA.seed.spellingTinikProblems) || null;
 }
 function saveSpellingTinikProblems(m) {
   try {
@@ -3643,37 +2385,7 @@ function saveSpellingTinikProblems(m) {
    comparison symbol ("<", ">", "=") depending on the level.
    ========================================================= */
 const MONEY_TINIK_SET_COUNT = 10;
-const MONEY_TINIK_LEVELS = [{
-  id: 1,
-  title: "Counting Coins & Bills",
-  short: "add up a small pile of money",
-  icon: "🪙"
-}, {
-  id: 2,
-  title: "Adding Money",
-  short: "no regrouping",
-  icon: "➕"
-}, {
-  id: 3,
-  title: "Adding Money — With Regrouping",
-  short: "carries to the tens",
-  icon: "➕"
-}, {
-  id: 4,
-  title: "Subtracting Money",
-  short: "peso amounts, no negative change",
-  icon: "➖"
-}, {
-  id: 5,
-  title: "Comparing Money",
-  short: "<, >, or =",
-  icon: "⚖️"
-}, {
-  id: 6,
-  title: "Making Change",
-  short: "pay with a bill, find the change",
-  icon: "💵"
-}];
+const MONEY_TINIK_LEVELS = CONTENT_DATA.moneyTinikLevels;
 function mnFormatPeso(amount) {
   return `\u20b1${amount}`;
 }
@@ -3787,7 +2499,7 @@ function loadMoneyTinikProblems() {
     const raw = localStorage.getItem(STORAGE_KEY_MONEY_TINIK_PROBLEMS);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return null;
+  return (CONTENT_DATA.seed && CONTENT_DATA.seed.moneyTinikProblems) || null;
 }
 function saveMoneyTinikProblems(m) {
   try {
@@ -3806,115 +2518,7 @@ function saveMoneyTinikProblems(m) {
    meaning; the answer is the Filipino word.
    ========================================================= */
 const FIL_SPELLING_TINIK_SET_COUNT = 10;
-const FIL_SPELLING_TINIK_LEVELS = [{
-  id: 1,
-  title: "Easy Words",
-  short: "colors, shapes & everyday words",
-  icon: "🔤",
-  bank: [{
-    word: "pula",
-    clue: 'Filipino word for "red"'
-  }, {
-    word: "pusa",
-    clue: 'Filipino word for "cat"'
-  }, {
-    word: "araw",
-    clue: 'Filipino word for "sun"'
-  }, {
-    word: "aso",
-    clue: 'Filipino word for "dog"'
-  }, {
-    word: "sombrero",
-    clue: 'Filipino word for "hat"'
-  }, {
-    word: "kahon",
-    clue: 'Filipino word for "box"'
-  }, {
-    word: "baboy",
-    clue: 'Filipino word for "pig"'
-  }, {
-    word: "tasa",
-    clue: 'Filipino word for "cup"'
-  }, {
-    word: "takbo",
-    clue: 'Filipino word for "run"'
-  }, {
-    word: "malaki",
-    clue: 'Filipino word for "big"'
-  }]
-}, {
-  id: 2,
-  title: "Medium Words",
-  short: "everyday describing & action words",
-  icon: "✏️",
-  bank: [{
-    word: "masaya",
-    clue: 'Filipino word for "happy"'
-  }, {
-    word: "berde",
-    clue: 'Filipino word for "green"'
-  }, {
-    word: "talon",
-    clue: 'Filipino word for "jump"'
-  }, {
-    word: "mesa",
-    clue: 'Filipino word for "table"'
-  }, {
-    word: "dilaw",
-    clue: 'Filipino word for "yellow"'
-  }, {
-    word: "lapis",
-    clue: 'Filipino word for "pencil"'
-  }, {
-    word: "bintana",
-    clue: 'Filipino word for "window"'
-  }, {
-    word: "gabi",
-    clue: 'Filipino word for "night"'
-  }, {
-    word: "lila",
-    clue: 'Filipino word for "purple"'
-  }, {
-    word: "hardin",
-    clue: 'Filipino word for "garden"'
-  }]
-}, {
-  id: 3,
-  title: "Challenge Words",
-  short: "common Grade 2 Filipino words",
-  icon: "📝",
-  bank: [{
-    word: "kaibigan",
-    clue: 'Filipino word for "friend"'
-  }, {
-    word: "paaralan",
-    clue: 'Filipino word for "school"'
-  }, {
-    word: "maliit",
-    clue: 'Filipino word for "little/small"'
-  }, {
-    word: "pamilya",
-    clue: 'Filipino word for "family"'
-  }, {
-    word: "hayop",
-    clue: 'Filipino word for "animal"'
-  }, {
-    word: "titik",
-    clue: 'Filipino word for "letter" (of the alphabet)'
-  }, {
-    word: "kusina",
-    clue: 'Filipino word for "kitchen"'
-  }, {
-    word: "bilog",
-    clue: 'Filipino word for "circle"'
-  }, {
-    word: "umaga",
-    clue: 'Filipino word for "morning"'
-  }, {
-    word: "larawan",
-    clue: 'Filipino word for "picture"'
-  }]
-}];
+const FIL_SPELLING_TINIK_LEVELS = CONTENT_DATA.filSpellingTinikLevels;
 // Builds a fresh set of 3 problems for a given Filipino Spelling Tinik level id (1-3).
 function fsGenerateProblems(levelId) {
   const level = FIL_SPELLING_TINIK_LEVELS.find(l => l.id === levelId);
@@ -3942,7 +2546,7 @@ function loadFilSpellingTinikProblems() {
     const raw = localStorage.getItem(STORAGE_KEY_FIL_SPELLING_TINIK_PROBLEMS);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return null;
+  return (CONTENT_DATA.seed && CONTENT_DATA.seed.filSpellingTinikProblems) || null;
 }
 function saveFilSpellingTinikProblems(m) {
   try {
@@ -3961,83 +2565,7 @@ function saveFilSpellingTinikProblems(m) {
    loop, keyboard listeners and CSS never collide with the React
    app around it. Dark-mode-only bonus subject.
    ========================================================= */
-const STORY_SHELVES = [
-// ---- English ----
-{
-  id: "story-en-folktales",
-  num: "Shelf 1",
-  icon: "🏰",
-  title: "Fairy Tales & Folktales",
-  lang: "en",
-  chapters: [],
-  color: "var(--subj-g2-english)"
-}, {
-  id: "story-en-fables",
-  num: "Shelf 2",
-  icon: "🦁",
-  title: "Animal Fables",
-  lang: "en",
-  chapters: [],
-  color: "var(--subj-g2-computer)"
-}, {
-  id: "story-en-bedtime",
-  num: "Shelf 3",
-  icon: "🌙",
-  title: "Bedtime Stories",
-  lang: "en",
-  chapters: [],
-  color: "var(--subj-g2-ap)"
-}, {
-  id: "story-en-values",
-  num: "Shelf 4",
-  icon: "💛",
-  title: "Values & Character",
-  lang: "en",
-  chapters: [],
-  color: "var(--subj-g2-gmrc)"
-}, {
-  id: "story-en-adventure",
-  num: "Shelf 5",
-  icon: "🗺️",
-  title: "Adventure & Fantasy",
-  lang: "en",
-  chapters: [],
-  color: "var(--subj-g2-math)"
-},
-// ---- Filipino ----
-{
-  id: "story-fil-alamat",
-  num: "Istante 1",
-  icon: "🐢",
-  title: "Alamat at Kwentong Bayan",
-  lang: "fil",
-  chapters: [],
-  color: "var(--subj-g2-filipino)"
-}, {
-  id: "story-fil-pabula",
-  num: "Istante 2",
-  icon: "🐒",
-  title: "Mga Pabula (Hayop)",
-  lang: "fil",
-  chapters: [],
-  color: "var(--subj-g2-computer)"
-}, {
-  id: "story-fil-pantulog",
-  num: "Istante 3",
-  icon: "🌜",
-  title: "Kwentong Pantulog",
-  lang: "fil",
-  chapters: [],
-  color: "var(--subj-g2-ap)"
-}, {
-  id: "story-fil-aral",
-  num: "Istante 4",
-  icon: "💛",
-  title: "Aral at Pag-uugali",
-  lang: "fil",
-  chapters: [],
-  color: "var(--subj-g2-gmrc)"
-}];
+const STORY_SHELVES = CONTENT_DATA.storyShelves;
 const SUBJECTS = [{
   id: "general",
   name: "General Knowledge",
@@ -4460,7 +2988,11 @@ function loadEdits() {
     const raw = localStorage.getItem(EDITS_KEY);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return {};
+  // Nothing saved locally yet (fresh browser, or a Firebase load that hasn't
+  // landed) — fall back to the bundled seed backup so the app isn't empty.
+  // Real local/cloud data always wins once it's there; this is a floor, not
+  // an override.
+  return (CONTENT_DATA.seed && CONTENT_DATA.seed.edits) || {};
 }
 function saveEdits(e) {
   try {
@@ -4473,7 +3005,7 @@ function loadBank() {
     const raw = localStorage.getItem(BANK_KEY);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return {};
+  return (CONTENT_DATA.seed && CONTENT_DATA.seed.bank) || {};
 }
 function saveBank(b) {
   try {
@@ -4486,7 +3018,7 @@ function loadMoves() {
     const raw = localStorage.getItem(MOVES_KEY);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return {};
+  return (CONTENT_DATA.seed && CONTENT_DATA.seed.moves) || {};
 }
 function saveMoves(m) {
   try {
@@ -4499,7 +3031,7 @@ function loadCustomLessons() {
     const raw = localStorage.getItem(CUSTOM_LESSONS_KEY);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return [];
+  return (CONTENT_DATA.seed && CONTENT_DATA.seed.customLessons) || [];
 }
 function saveCustomLessons(c) {
   try {
@@ -4519,7 +3051,7 @@ function loadHiddenLessons() {
     const raw = localStorage.getItem(HIDDEN_LESSONS_KEY);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return [];
+  return (CONTENT_DATA.seed && CONTENT_DATA.seed.hiddenLessons) || [];
 }
 function saveHiddenLessons(h) {
   try {
@@ -7480,6 +6012,24 @@ function ResultsView({
   React.useEffect(() => {
     isPerfect ? Sound.perfect() : passed ? Sound.pass() : Sound.tryAgain();
   }, []);
+  // Per-topic breakdown — only meaningful when answers span more than one
+  // tag (e.g. a long/custom quiz pulling from several topics). Order of
+  // first appearance is kept so it roughly follows the quiz's own order.
+  const topicOrder = [];
+  const topicStats = {};
+  answers.forEach(a => {
+    const t = a.tag || "General";
+    if (!topicStats[t]) {
+      topicStats[t] = {
+        correct: 0,
+        total: 0
+      };
+      topicOrder.push(t);
+    }
+    topicStats[t].total++;
+    if (a.isCorrect) topicStats[t].correct++;
+  });
+  const showBreakdown = topicOrder.length > 1;
   return /*#__PURE__*/React.createElement("div", {
     className: "results-card" + (passed ? " reward" : "")
   }, passed && /*#__PURE__*/React.createElement(Confetti, {
@@ -7498,7 +6048,30 @@ function ResultsView({
     }
   }, correct, " / ", total), /*#__PURE__*/React.createElement("div", {
     className: "results-sub"
-  }, isPerfect ? "Flawless! You got every question right in " + title + "." : passed ? "Great work! You passed " + title + "." : "Keep practicing — review " + title + " and try again."), /*#__PURE__*/React.createElement("div", {
+  }, isPerfect ? "Flawless! You got every question right in " + title + "." : passed ? "Great work! You passed " + title + "." : "Keep practicing — review " + title + " and try again."), showBreakdown && /*#__PURE__*/React.createElement("div", {
+    className: "results-breakdown"
+  }, /*#__PURE__*/React.createElement("h4", null, "Score by Topic"), topicOrder.map(t => {
+    const st = topicStats[t];
+    const tpct = Math.round(st.correct / st.total * 100);
+    return /*#__PURE__*/React.createElement("div", {
+      key: t,
+      className: "results-breakdown-row"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "rbr-top"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "rbr-name"
+    }, t), /*#__PURE__*/React.createElement("span", {
+      className: "rbr-score"
+    }, st.correct, "/", st.total)), /*#__PURE__*/React.createElement("div", {
+      className: "rbr-bar"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "rbr-bar-fill",
+      style: {
+        width: tpct + "%",
+        background: tpct >= 70 ? "var(--good)" : accent
+      }
+    })));
+  })), /*#__PURE__*/React.createElement("div", {
     className: "review-list"
   }, answers.map((a, i) => /*#__PURE__*/React.createElement("div", {
     className: "review-item",
@@ -10469,7 +9042,8 @@ function LongQuizScreen({
   nav,
   quizSession,
   setQuizSession,
-  startLongQuiz
+  startLongQuiz,
+  startCustomLongQuiz
 }) {
     const subject = currentSubject();
     const quarter = subject.quarters.find(q => q.id === nav.quarterId);
@@ -10492,7 +9066,7 @@ function LongQuizScreen({
       answers: quizSession.finalAnswers,
       accent: quarter.color,
       title: quarter.title + " Long Quiz",
-      onRetry: () => startLongQuiz(quarter),
+      onRetry: () => quizSession.blocks ? startCustomLongQuiz(quarter, quizSession.blocks) : startLongQuiz(quarter),
       onDone: () => {
         setQuizSession(null);
         goQuarter(subject.id, quarter.id);
@@ -10525,7 +9099,8 @@ function QuarterScreen({
   removeCustomTopic,
   restoreLesson,
   setLessonQuestions,
-  startLongQuiz
+  startLongQuiz,
+  startCustomLongQuiz
 }) {
     const subject = currentSubject();
     const quarter = subject.quarters.find(q => q.id === nav.quarterId);
@@ -10553,24 +9128,58 @@ function QuarterScreen({
     const nativeLessons = lessons.filter(l => l.homeQuarterId === quarter.id);
     const movedInLessons = lessons.filter(l => l.homeQuarterId !== quarter.id);
     const totalBankQ = lessons.reduce((sum, l) => sum + getQuestions(l.id).length, 0);
-    const [longCount, setLongCount] = useState(Math.min(10, totalBankQ) || 1);
-    const [longTopics, setLongTopics] = useState([TOPIC_ALL]);
-    const [longType, setLongType] = useState(TYPE_ALL);
-    const longFullPool = lessons.flatMap(l => getQuestions(l.id));
-    const longAvailTopics = bankTopics(longFullPool);
-    const longAvailTopicsWithCounts = longAvailTopics.map(t => ({
-      name: t,
-      count: longFullPool.filter(q => normTopic(q.topic) === t).length
-    }));
-    const longTopicPool = filterByTopics(longFullPool, longTopics);
-    const longFilteredCount = filterByType(longTopicPool, longType).length;
     let counter = 0;
+    // ---- Custom Long Quiz builder: pick a chapter → topic → type → count,
+    // add it as a block, repeat for as many topics as wanted, then generate
+    // one combined test. Results are scored per-topic afterward. ----
+    const lqChapterOptions = quarter.chapters.map(ch => ({
+      id: ch.id,
+      title: ch.title
+    })).concat(lessons.some(l => l.chapterId === "custom") ? [{
+      id: "custom",
+      title: "\u2728 My Topics"
+    }] : []);
+    const [longBlocks, setLongBlocks] = useState([]);
+    const [draftChapter, setDraftChapter] = useState("");
+    const [draftLesson, setDraftLesson] = useState(TOPIC_ALL);
+    const [draftType, setDraftType] = useState(TYPE_ALL);
+    const [draftCount, setDraftCount] = useState(5);
+    const draftLessons = draftChapter ? lessons.filter(l => l.chapterId === draftChapter) : lessons;
+    const draftLessonPool = draftLesson === TOPIC_ALL ? draftLessons : draftLessons.filter(l => l.id === draftLesson);
+    const draftFullPool = draftLessonPool.flatMap(l => getQuestions(l.id));
+    const draftFilteredPool = filterByType(draftFullPool, draftType);
+    const draftMax = draftFilteredPool.length;
     useEffect(() => {
-      setLongCount(Math.min(10, longFilteredCount) || 1);
-    }, [longTopics, longType, longFilteredCount]);
+      setDraftLesson(TOPIC_ALL);
+    }, [draftChapter]);
     useEffect(() => {
-      setLongType(TYPE_ALL);
-    }, [longTopics]);
+      setDraftType(TYPE_ALL);
+    }, [draftLesson, draftChapter]);
+    useEffect(() => {
+      setDraftCount(Math.min(5, draftMax) || 1);
+    }, [draftType, draftLesson, draftChapter]);
+    function addLongBlock() {
+      if (draftMax === 0) return;
+      const chTitle = draftChapter ? (lqChapterOptions.find(c => c.id === draftChapter) || {}).title : "All Chapters";
+      const lsTitle = draftLesson === TOPIC_ALL ? "All Topics" : (draftLessons.find(l => l.id === draftLesson) || {}).title || "Topic";
+      const typeLabel = (QUIZ_TYPE_OPTIONS.find(o => o.id === draftType) || {}).label || "All Types";
+      setLongBlocks(prev => [...prev, {
+        id: "b" + Date.now() + Math.floor(Math.random() * 1000),
+        chapterId: draftChapter,
+        chapterTitle: chTitle,
+        lessonId: draftLesson,
+        lessonTitle: lsTitle,
+        qType: draftType,
+        qTypeLabel: typeLabel,
+        count: Math.max(1, Math.min(draftCount || draftMax, draftMax))
+      }]);
+      setDraftLesson(TOPIC_ALL);
+      setDraftType(TYPE_ALL);
+    }
+    function removeLongBlock(id) {
+      setLongBlocks(prev => prev.filter(b => b.id !== id));
+    }
+    const longTotalCount = longBlocks.reduce((sum, b) => sum + b.count, 0);
     const [addingTopic, setAddingTopic] = useState(false);
     const [newTopicTitle, setNewTopicTitle] = useState("");
     const [newTopicSub, setNewTopicSub] = useState("");
@@ -10940,66 +9549,123 @@ function QuarterScreen({
       style: {
         marginTop: 14
       }
-    }, longAvailTopics.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
-      className: "field-label"
-    }, "Which topic(s)?"), /*#__PURE__*/React.createElement("div", {
+    },
+    /* Blocks already added to this custom quiz */
+    longBlocks.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "lq-block-list"
+    }, longBlocks.map(b => /*#__PURE__*/React.createElement("div", {
+      key: b.id,
+      className: "lq-block-row"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "lq-block-info"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "lq-block-chip"
+    }, "\uD83D\uDCD6 ", b.chapterId ? b.chapterTitle : "All Chapters"), /*#__PURE__*/React.createElement("span", {
+      className: "lq-block-sep"
+    }, "\u25B8"), /*#__PURE__*/React.createElement("span", {
+      className: "lq-block-chip"
+    }, "\uD83D\uDCCC ", b.lessonTitle), /*#__PURE__*/React.createElement("span", {
+      className: "lq-block-sep"
+    }, "\u25B8"), /*#__PURE__*/React.createElement("span", {
+      className: "lq-block-chip"
+    }, b.qTypeLabel), /*#__PURE__*/React.createElement("span", {
+      className: "lq-block-count"
+    }, b.count, " q")), /*#__PURE__*/React.createElement("button", {
+      className: "lq-block-remove",
+      title: "Remove this topic",
+      onClick: () => removeLongBlock(b.id)
+    }, "\u2715")))),
+    /* Draft form for adding the next block */
+    /*#__PURE__*/React.createElement("div", {
+      className: "lq-draft-form"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "field-label",
       style: {
-        maxWidth: 320,
-        marginBottom: 14
+        marginTop: 0
       }
-    }, /*#__PURE__*/React.createElement(TopicPicker, {
-      topics: longAvailTopicsWithCounts,
-      totalCount: totalBankQ,
-      selected: longTopics,
-      onToggle: t => toggleTopicSelection(longTopics, t, setLongTopics)
-    }))), /*#__PURE__*/React.createElement("label", {
+    }, "Chapter"), /*#__PURE__*/React.createElement("select", {
+      className: "text-input",
+      value: draftChapter,
+      onChange: e => setDraftChapter(e.target.value)
+    }, /*#__PURE__*/React.createElement("option", {
+      value: ""
+    }, "All Chapters"), lqChapterOptions.map(ch => /*#__PURE__*/React.createElement("option", {
+      key: ch.id,
+      value: ch.id
+    }, ch.title))), /*#__PURE__*/React.createElement("label", {
       className: "field-label"
-    }, "Question type?"), /*#__PURE__*/React.createElement("div", {
+    }, "Topic"), /*#__PURE__*/React.createElement("select", {
+      className: "text-input",
+      value: draftLesson,
+      onChange: e => setDraftLesson(e.target.value)
+    }, /*#__PURE__*/React.createElement("option", {
+      value: TOPIC_ALL
+    }, "All Topics", draftChapter ? " in this chapter" : ""), draftLessons.map(l => /*#__PURE__*/React.createElement("option", {
+      key: l.id,
+      value: l.id
+    }, l.title))), /*#__PURE__*/React.createElement("label", {
+      className: "field-label"
+    }, "Question Type"), /*#__PURE__*/React.createElement("div", {
       style: {
-        marginBottom: 14
+        marginBottom: 4
       }
     }, /*#__PURE__*/React.createElement(QuizTypePicker, {
-      pool: longTopicPool,
-      selected: longType,
-      onSelect: setLongType
-    })), longFilteredCount === 0 ? /*#__PURE__*/React.createElement("p", {
+      pool: draftFullPool,
+      selected: draftType,
+      onSelect: setDraftType
+    })), draftMax === 0 ? /*#__PURE__*/React.createElement("p", {
       className: "sub"
     }, "No questions of this type for this topic yet.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
       className: "field-label"
-    }, "How many questions would you like to take? (1\u2013", longFilteredCount, ")"), /*#__PURE__*/React.createElement("input", {
+    }, "How many? (1\u2013", draftMax, ")"), /*#__PURE__*/React.createElement("input", {
       type: "number",
       className: "text-input",
       min: 1,
-      max: longFilteredCount,
-      value: longCount,
+      max: draftMax,
+      value: draftCount,
       onChange: e => {
         const raw = e.target.value;
         if (raw === "") {
-          setLongCount("");
+          setDraftCount("");
           return;
         }
         const v = parseInt(raw, 10);
         if (Number.isNaN(v)) return;
-        setLongCount(Math.max(1, Math.min(v, longFilteredCount)));
+        setDraftCount(Math.max(1, Math.min(v, draftMax)));
       },
       onBlur: () => {
-        if (longCount === "" || Number.isNaN(longCount)) setLongCount(1);
+        if (draftCount === "" || Number.isNaN(draftCount)) setDraftCount(1);
       }
-    })), /*#__PURE__*/React.createElement("div", {
+    })), /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-ghost",
+      style: {
+        marginTop: 12,
+        width: "100%"
+      },
+      disabled: draftMax === 0,
+      onClick: addLongBlock
+    }, "+ Add This Topic to the Quiz")),
+    /* Total + generate/cancel */
+    longBlocks.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "lq-total"
+    }, "\uD83D\uDCDD ", longTotalCount, " question", longTotalCount === 1 ? "" : "s", " across ", longBlocks.length, " topic", longBlocks.length === 1 ? "" : "s", "."), /*#__PURE__*/React.createElement("div", {
       className: "learn-footer",
       style: {
         gap: 10
       }
     }, /*#__PURE__*/React.createElement("button", {
       className: "btn btn-ghost",
-      onClick: () => setShowSetup(false)
-    }, "Cancel"), longFilteredCount > 0 && /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setShowSetup(false);
+        setLongBlocks([]);
+      }
+    }, "Cancel"), longBlocks.length > 0 && /*#__PURE__*/React.createElement("button", {
       className: "btn btn-primary",
       style: {
         background: quarter.color
       },
-      onClick: () => startLongQuiz(quarter, longCount, longTopics, longType)
-    }, "Start Long Quiz \u2192")))), movingCard && /*#__PURE__*/React.createElement("div", {
+      onClick: () => startCustomLongQuiz(quarter, longBlocks)
+    }, "Generate Quiz \u2192")))), movingCard && /*#__PURE__*/React.createElement("div", {
       className: "gen-setup-overlay",
       onClick: () => setMovingCard(null)
     }, /*#__PURE__*/React.createElement("div", {
@@ -14056,6 +12722,40 @@ function App() {
       questions: chosen
     });
   }
+  // Custom Long Quiz builder: `blocks` is an array of
+  // { chapterId, lessonId, qType, count } picked by the parent/teacher —
+  // each block draws its own random sample, and the samples are combined
+  // (and shuffled together) into one test. Because every question keeps its
+  // lesson's title as `tag`, the results screen can score each topic on its
+  // own once the quiz is finished.
+  function startCustomLongQuiz(quarter, blocks) {
+    if (!blocks || blocks.length === 0) return;
+    Sound.nav();
+    const subject = currentSubject();
+    const lessons = quarterLessons(subject, quarter, moves, customLessons, hiddenLessons);
+    let combined = [];
+    blocks.forEach(b => {
+      let bLessons = lessons;
+      if (b.chapterId) bLessons = bLessons.filter(l => l.chapterId === b.chapterId);
+      if (b.lessonId && b.lessonId !== TOPIC_ALL) bLessons = bLessons.filter(l => l.id === b.lessonId);
+      let pool = bLessons.flatMap(l => getQuestions(l.id).map(q => ({
+        ...q,
+        tag: mergeLesson(l, edits).title
+      })));
+      pool = filterByType(pool, b.qType);
+      const n = Math.max(1, Math.min(b.count || pool.length, pool.length));
+      combined = combined.concat(shuffle(pool).slice(0, n));
+    });
+    combined = shuffle(combined);
+    setQuizSession({
+      kind: "long",
+      key: quarter.id,
+      accent: quarter.color,
+      title: quarter.title + " Long Quiz",
+      questions: combined,
+      blocks
+    });
+  }
   function handleQuizFinish(answers) {
     const correct = answers.filter(a => a.isCorrect).length;
     const total = answers.length;
@@ -14160,7 +12860,8 @@ function App() {
       nav,
       quizSession,
       setQuizSession,
-      startLongQuiz
+      startLongQuiz,
+      startCustomLongQuiz
     });
   } else if (nav.screen === "quarter") {
     content = /*#__PURE__*/React.createElement(QuarterScreen, {
@@ -14180,7 +12881,8 @@ function App() {
       removeCustomTopic,
       restoreLesson,
       setLessonQuestions,
-      startLongQuiz
+      startLongQuiz,
+      startCustomLongQuiz
     });
   } else if (nav.screen === "lesson") {
     content = /*#__PURE__*/React.createElement(LessonScreen, {
