@@ -7896,7 +7896,82 @@ function normalizeQuestionsJSON(parsed, fallbackTopicRaw, forcedTopicRaw) {
 // temperature/top_p/top_k sampling params — generationConfig below
 // intentionally omits them.
 const GEMINI_TEXT_MODEL = "gemini-3.6-flash";
-const GEMINI_TEXT_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TEXT_MODEL}:generateContent`;
+// Quiz-generator fallback chain. Gemini quotas are counted PER MODEL, so when
+// one model is out of quota (429) or overloaded (503) we move on to the next
+// instead of failing. Order = preference. Unknown/retired model ids (404) are
+// skipped automatically. Edit this list to match what your AI Studio
+// rate-limit page shows has free headroom.
+const GEMINI_TEXT_MODELS = [GEMINI_TEXT_MODEL, "gemini-3.5-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash"];
+const GEMINI_TEXT_URL_BASE = "https://generativelanguage.googleapis.com/v1beta/models/";
+// Remembers (for this page session only) which model last worked, so we don't
+// re-hit an exhausted model on every click.
+let geminiTextStartIdx = 0;
+function geminiSleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+async function fetchGeminiTextWithFallback(apiKey, prompt) {
+  const body = JSON.stringify({
+    contents: [{
+      role: "user",
+      parts: [{
+        text: prompt
+      }]
+    }],
+    generationConfig: {
+      responseMimeType: "application/json"
+    }
+  });
+  const n = GEMINI_TEXT_MODELS.length;
+  let lastMsg = "";
+  let lastStatus = 0;
+  for (let k = 0; k < n; k++) {
+    const idx = (geminiTextStartIdx + k) % n;
+    const model = GEMINI_TEXT_MODELS[idx];
+    // Up to 2 tries per model: one quick retry only for transient overload (500/503/504/network).
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let res;
+      try {
+        res = await fetch(`${GEMINI_TEXT_URL_BASE}${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body
+        });
+      } catch (netErr) {
+        lastMsg = "network error";
+        lastStatus = 0;
+        if (attempt === 0) {
+          await geminiSleep(1200);
+          continue;
+        }
+        break; // try next model
+      }
+      if (res.ok) {
+        if (idx !== geminiTextStartIdx) console.info("Quiz generator switched to fallback model:", model);
+        geminiTextStartIdx = idx;
+        return res;
+      }
+      let detail = "";
+      try {
+        detail = (await res.json()).error?.message || "";
+      } catch (e) {}
+      lastStatus = res.status;
+      lastMsg = detail;
+      // Bad key / forbidden: no other model will help — fail right away.
+      if (res.status === 401 || res.status === 403 || res.status === 400 && /api key/i.test(detail)) {
+        throw new Error("Gemini request failed (" + res.status + ")" + (detail ? ": " + detail : ""));
+      }
+      // Transient overload: one short retry on the same model, then move on.
+      if ((res.status === 500 || res.status === 503 || res.status === 504) && attempt === 0) {
+        await geminiSleep(1500);
+        continue;
+      }
+      break; // 429 (quota), 404 (unknown model), anything else: next model
+    }
+  }
+  throw new Error("All " + n + " Gemini models are out of quota or busy right now" + (lastStatus ? " (last error " + lastStatus + ")" : "") + ". Free quota resets around midnight Pacific time (mid-afternoon in the Philippines) — please try again later.");
+}
 const GEMINI_DIFFICULTY_PHRASING = {
   easy: "Keep it EASY: short sentences, the most basic recall-level facts straight from the notes, and obviously-different wrong answers.",
   medium: "Keep it at a normal Grade-2 difficulty: mostly recall with a couple of questions that need a little thought, and wrong answers that are plausible but not tricky.",
@@ -8112,30 +8187,7 @@ Only use these question "type" values, matching these exact JSON shapes (omit "t
 ${typeSpec}
 
 Return ONLY a raw JSON array of question objects — no markdown code fences, no commentary, no surrounding text.`;
-  const res = await fetch(`${GEMINI_TEXT_URL}?key=${encodeURIComponent(apiKey)}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      contents: [{
-        role: "user",
-        parts: [{
-          text: prompt
-        }]
-      }],
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    })
-  });
-  if (!res.ok) {
-    let detail = "";
-    try {
-      detail = (await res.json()).error?.message || "";
-    } catch (e) {}
-    throw new Error("Gemini request failed (" + res.status + ")" + (detail ? ": " + detail : ""));
-  }
+  const res = await fetchGeminiTextWithFallback(apiKey, prompt);
   const data = await res.json();
   const text = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts || []).map(p => p.text || "").join("").trim();
   if (!text) throw new Error("Gemini returned an empty response.");
